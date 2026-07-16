@@ -9,6 +9,7 @@ mod clean;
 mod identifier;
 mod mock;
 mod slug;
+mod squeeze;
 mod titlecase;
 
 pub use case::{Lower, Upper};
@@ -16,4 +17,5 @@ pub use clean::Clean;
 pub use identifier::{Camel, Constant, Kebab, Pascal, Snake};
 pub use mock::Mock;
 pub use slug::Slug;
+pub use squeeze::Squeeze;
 pub use titlecase::TitleCase;

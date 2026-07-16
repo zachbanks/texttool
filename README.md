@@ -47,6 +47,7 @@ standard output unless `-o/--output <FILE>` is given.
 | Operation   | Aliases                | Description                                      |
 |-------------|------------------------|--------------------------------------------------|
 | `clean`     |                        | Tidy whitespace, line endings, invisible chars   |
+| `squeeze`   | `sq`, `normalize-ws`   | Collapse excess spaces, tabs, and newlines       |
 | `titlecase` | `title`, `tc`          | Convert text to smart Title Case                 |
 | `slug`      |                        | Slugify text into URL/filename-friendly form     |
 | `camel`     | `camelcase`            | Convert text to `camelCase`                       |
@@ -60,6 +61,23 @@ standard output unless `-o/--output <FILE>` is given.
 
 Run `tt --help` (or `tt <op> --help`) for the full, colorized list
 of options.
+
+#### `squeeze`
+
+Collapses excess whitespace. More aggressive than `clean`: by default *every*
+run of whitespace (spaces, tabs, `\r`, `\n`, NBSP, …) becomes a single space and
+the text is flattened onto one line.
+
+| Flag                    | Effect                                            |
+|-------------------------|---------------------------------------------------|
+| `--keep-newlines`       | Keep line breaks; only collapse horizontal space  |
+| `--remove-all`          | Delete all whitespace instead of collapsing       |
+| `--no-trailing-newline` | Do not append a trailing newline                  |
+
+```sh
+printf '  a\t\tb\r\n\n  c  ' | tt squeeze                 # a b c
+printf 'a b\tc\nd'           | tt squeeze --remove-all     # abcd
+```
 
 #### `titlecase`
 
