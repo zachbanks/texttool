@@ -34,6 +34,37 @@ fn collapse_ws(s: &str) -> String {
     out
 }
 
+/// Squeeze horizontal whitespace per line and cap runs of consecutive newlines
+/// at `max` (so at most `max - 1` blank lines survive between content), trimming
+/// leading and trailing blank lines.
+fn cap_newlines(input: &str, max: usize) -> String {
+    let normalized = input.replace("\r\n", "\n").replace('\r', "\n");
+    let allowed_blanks = max.saturating_sub(1);
+
+    let mut lines: Vec<String> = Vec::new();
+    let mut blank_run = 0usize;
+    for raw in normalized.split('\n') {
+        let line = collapse_ws(raw);
+        if line.is_empty() {
+            blank_run += 1;
+            if blank_run <= allowed_blanks {
+                lines.push(String::new());
+            }
+        } else {
+            blank_run = 0;
+            lines.push(line);
+        }
+    }
+
+    while lines.first().is_some_and(|l| l.is_empty()) {
+        lines.remove(0);
+    }
+    while lines.last().is_some_and(|l| l.is_empty()) {
+        lines.pop();
+    }
+    lines.join("\n")
+}
+
 impl Transform for Squeeze {
     fn name(&self) -> &'static str {
         "squeeze"
@@ -66,10 +97,20 @@ impl Transform for Squeeze {
                 .action(ArgAction::SetTrue),
         )
         .arg(
+            Arg::new("max-newlines")
+                .long("max-newlines")
+                .value_name("N")
+                .help("Keep at most N consecutive newlines, deleting the rest")
+                .num_args(0..=1)
+                .default_missing_value("2")
+                .value_parser(clap::value_parser!(u64).range(1..))
+                .conflicts_with("keep-newlines"),
+        )
+        .arg(
             Arg::new("remove-all")
                 .long("remove-all")
                 .help("Remove all whitespace instead of collapsing to spaces")
-                .conflicts_with("keep-newlines")
+                .conflicts_with_all(["keep-newlines", "max-newlines"])
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -83,10 +124,13 @@ impl Transform for Squeeze {
     fn apply(&self, input: &str, args: &ArgMatches) -> Result<String, String> {
         let remove_all = args.get_flag("remove-all");
         let keep_newlines = args.get_flag("keep-newlines");
+        let max_newlines = args.get_one::<u64>("max-newlines").copied();
         let trailing_newline = !args.get_flag("no-trailing-newline");
 
         let mut body = if remove_all {
             input.chars().filter(|c| !c.is_whitespace()).collect()
+        } else if let Some(max) = max_newlines {
+            cap_newlines(input, max as usize)
         } else if keep_newlines {
             // Normalize CR/CRLF first, then squeeze each line and drop blanks.
             input
@@ -152,6 +196,47 @@ mod tests {
                 .apply("a b\tc\nd", &args(&["--remove-all"]))
                 .unwrap(),
             "abcd\n"
+        );
+    }
+
+    #[test]
+    fn max_newlines_defaults_to_two() {
+        // Flag given without a value keeps at most 2 consecutive newlines.
+        assert_eq!(
+            Squeeze
+                .apply("a\n\n\n\n\nb", &args(&["--max-newlines"]))
+                .unwrap(),
+            "a\n\nb\n"
+        );
+    }
+
+    #[test]
+    fn max_newlines_explicit_value() {
+        assert_eq!(
+            Squeeze
+                .apply("a\n\n\n\n\nb", &args(&["--max-newlines", "3"]))
+                .unwrap(),
+            "a\n\n\nb\n"
+        );
+    }
+
+    #[test]
+    fn max_newlines_one_collapses_blanks() {
+        assert_eq!(
+            Squeeze
+                .apply("a\n\n\nb", &args(&["--max-newlines", "1"]))
+                .unwrap(),
+            "a\nb\n"
+        );
+    }
+
+    #[test]
+    fn max_newlines_squeezes_horizontal_and_trims_edges() {
+        assert_eq!(
+            Squeeze
+                .apply("\n\n  a   b  \n\n\n\n c \n\n", &args(&["--max-newlines"]))
+                .unwrap(),
+            "a b\n\nc\n"
         );
     }
 

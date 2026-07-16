@@ -68,15 +68,18 @@ Collapses excess whitespace. More aggressive than `clean`: by default *every*
 run of whitespace (spaces, tabs, `\r`, `\n`, NBSP, …) becomes a single space and
 the text is flattened onto one line.
 
-| Flag                    | Effect                                            |
-|-------------------------|---------------------------------------------------|
-| `--keep-newlines`       | Keep line breaks; only collapse horizontal space  |
-| `--remove-all`          | Delete all whitespace instead of collapsing       |
-| `--no-trailing-newline` | Do not append a trailing newline                  |
+| Flag                    | Effect                                              |
+|-------------------------|-----------------------------------------------------|
+| `--keep-newlines`       | Keep line breaks; only collapse horizontal space    |
+| `--max-newlines [N]`    | Keep at most N consecutive newlines (default 2)     |
+| `--remove-all`          | Delete all whitespace instead of collapsing         |
+| `--no-trailing-newline` | Do not append a trailing newline                    |
 
 ```sh
-printf '  a\t\tb\r\n\n  c  ' | tt squeeze                 # a b c
-printf 'a b\tc\nd'           | tt squeeze --remove-all     # abcd
+printf '  a\t\tb\r\n\n  c  '  | tt squeeze                  # a b c
+printf 'a b\tc\nd'            | tt squeeze --remove-all      # abcd
+printf 'a\n\n\n\n\nb'         | tt squeeze --max-newlines    # a<blank>b (2 newlines)
+printf 'a\n\n\n\nb'           | tt squeeze --max-newlines 3  # a + 3 newlines + b
 ```
 
 #### `titlecase`
