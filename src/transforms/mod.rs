@@ -5,5 +5,7 @@
 //! here, then registered in [`crate::registry::default_registry`].
 
 mod case;
+mod clean;
 
 pub use case::{Lower, Upper};
+pub use clean::Clean;

@@ -46,11 +46,25 @@ standard output unless `-o/--output <FILE>` is given.
 
 | Operation   | Aliases | Description                                              |
 |-------------|---------|----------------------------------------------------------|
+| `clean`     |         | Tidy whitespace, line endings, and invisible characters  |
 | `upper`     | `uc`    | Convert text to UPPERCASE                                |
 | `lower`     | `lc`    | Convert text to lowercase                                |
 
-More operations (`clean`, `titlecase`, `slug`, …) are added in subsequent
-commits — run `texttool --help` for the current list.
+More operations (`titlecase`, `slug`, …) are added in subsequent commits — run
+`texttool --help` for the current list.
+
+#### `clean`
+
+Normalizes line endings to LF, applies Unicode NFC, strips control/zero-width
+characters, removes trailing whitespace, squeezes repeated spaces (preserving
+indentation), collapses runs of blank lines, and ends with a single newline.
+
+| Flag                    | Effect                                            |
+|-------------------------|---------------------------------------------------|
+| `--ascii`               | Fold smart quotes/dashes/ellipses to ASCII        |
+| `--no-squeeze`          | Keep repeated spaces                              |
+| `--keep-blank-lines`    | Keep consecutive blank lines                      |
+| `--no-trailing-newline` | Do not force a trailing newline                  |
 
 ### Examples
 
