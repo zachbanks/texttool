@@ -54,6 +54,7 @@ standard output unless `-o/--output <FILE>` is given.
 | `snake`     | `snakecase`            | Convert text to `snake_case`                      |
 | `kebab`     | `kebabcase`            | Convert text to `kebab-case`                      |
 | `constant`  | `scream`, `screaming-snake`, `const` | Convert text to `CONSTANT_CASE`   |
+| `mock`      | `spongebob`, `mocking`, `sarcasm`, `alternate` | `mOcKiNg` aLtErNaTiNg case |
 | `upper`     | `uc`                   | Convert text to `UPPERCASE`                        |
 | `lower`     | `lc`                   | Convert text to `lowercase`                        |
 
@@ -110,6 +111,14 @@ These share a word splitter that understands spaces, `_`/`-`/`.` delimiters, and
 echo 'get HTTP response' | tt camel      # getHttpResponse
 echo 'Max Retry Count'   | tt constant   # MAX_RETRY_COUNT
 echo 'helloWorldFooBar'  | tt kebab      # hello-world-foo-bar
+```
+
+#### `mock`
+
+aLtErNaTiNg case, jUsT fOr FuN. Use `--start-upper` to begin uppercase.
+
+```sh
+echo 'this is fine' | tt mock            # tHiS iS fInE
 ```
 
 ### Examples

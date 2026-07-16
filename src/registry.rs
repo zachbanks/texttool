@@ -74,6 +74,7 @@ pub fn default_registry() -> Registry {
         .register(transforms::Snake)
         .register(transforms::Kebab)
         .register(transforms::Constant)
+        .register(transforms::Mock)
         .register(transforms::Upper)
         .register(transforms::Lower);
     registry
