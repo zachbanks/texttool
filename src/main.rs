@@ -6,6 +6,7 @@
 //! to [`cli::dispatch`]. All real behaviour lives in the individual
 //! [`Transform`](transform::Transform) implementations under [`transforms`].
 
+mod casing;
 mod cli;
 mod io;
 mod registry;

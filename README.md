@@ -44,13 +44,18 @@ standard output unless `-o/--output <FILE>` is given.
 
 ### Operations
 
-| Operation   | Aliases      | Description                                         |
-|-------------|--------------|-----------------------------------------------------|
-| `clean`     |              | Tidy whitespace, line endings, invisible characters |
-| `titlecase` | `title`, `tc`| Convert text to smart Title Case                    |
-| `slug`      |              | Slugify text into URL/filename-friendly form        |
-| `upper`     | `uc`         | Convert text to UPPERCASE                            |
-| `lower`     | `lc`         | Convert text to lowercase                            |
+| Operation   | Aliases                | Description                                      |
+|-------------|------------------------|--------------------------------------------------|
+| `clean`     |                        | Tidy whitespace, line endings, invisible chars   |
+| `titlecase` | `title`, `tc`          | Convert text to smart Title Case                 |
+| `slug`      |                        | Slugify text into URL/filename-friendly form     |
+| `camel`     | `camelcase`            | Convert text to `camelCase`                       |
+| `pascal`    | `pascalcase`, `upper-camel` | Convert text to `PascalCase`                |
+| `snake`     | `snakecase`            | Convert text to `snake_case`                      |
+| `kebab`     | `kebabcase`            | Convert text to `kebab-case`                      |
+| `constant`  | `scream`, `screaming-snake`, `const` | Convert text to `CONSTANT_CASE`   |
+| `upper`     | `uc`                   | Convert text to `UPPERCASE`                        |
+| `lower`     | `lc`                   | Convert text to `lowercase`                        |
 
 Run `tt --help` (or `tt <op> --help`) for the full, colorized list
 of options.
@@ -95,6 +100,17 @@ indentation), collapses runs of blank lines, and ends with a single newline.
 | `--no-squeeze`          | Keep repeated spaces                              |
 | `--keep-blank-lines`    | Keep consecutive blank lines                      |
 | `--no-trailing-newline` | Do not force a trailing newline                  |
+
+#### Identifier cases (`camel`, `pascal`, `snake`, `kebab`, `constant`)
+
+These share a word splitter that understands spaces, `_`/`-`/`.` delimiters, and
+`camelCase`/`ACRONYM` boundaries, then re-join in the target style.
+
+```sh
+echo 'get HTTP response' | tt camel      # getHttpResponse
+echo 'Max Retry Count'   | tt constant   # MAX_RETRY_COUNT
+echo 'helloWorldFooBar'  | tt kebab      # hello-world-foo-bar
+```
 
 ### Examples
 

@@ -6,10 +6,12 @@
 
 mod case;
 mod clean;
+mod identifier;
 mod slug;
 mod titlecase;
 
 pub use case::{Lower, Upper};
 pub use clean::Clean;
+pub use identifier::{Camel, Constant, Kebab, Pascal, Snake};
 pub use slug::Slug;
 pub use titlecase::TitleCase;
