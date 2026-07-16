@@ -1,0 +1,22 @@
+[package]
+name = "texttool"
+version = "0.1.1"
+edition = "2024"
+description = "Unified, extensible command-line toolkit for text manipulation"
+license = "MIT"
+readme = "README.md"
+keywords = ["cli", "text", "titlecase", "clean", "formatting"]
+categories = ["command-line-utilities", "text-processing"]
+
+[[bin]]
+name = "texttool"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["wrap_help"] }
+unicode-normalization = "0.1"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 3

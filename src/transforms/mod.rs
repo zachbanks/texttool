@@ -1,0 +1,9 @@
+//! Built-in [`Transform`](crate::transform::Transform) implementations.
+//!
+//! Each submodule holds one operation (or a small family of closely related
+//! ones). New operations should be added as a new submodule and re-exported
+//! here, then registered in [`crate::registry::default_registry`].
+
+mod case;
+
+pub use case::{Lower, Upper};

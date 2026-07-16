@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+#
+# texttool pre-commit hook: auto-bump the patch version on every commit.
+#
+# Reads the current package version from Cargo.toml, increments the patch
+# component, writes it back, keeps Cargo.lock in sync, and re-stages both so the
+# version bump is part of the commit being made.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+manifest="${root}/Cargo.toml"
+
+current="$(awk -F'"' '/^version = "/ {print $2; exit}' "${manifest}")"
+if [ -z "${current}" ]; then
+  echo "pre-commit: could not find package version in Cargo.toml; skipping bump" >&2
+  exit 0
+fi
+
+IFS='.' read -r major minor patch <<<"${current}"
+next="${major}.${minor}.$((patch + 1))"
+
+# Replace only the top-level package version line (column 0). Dependency
+# versions like `clap = { version = "4" }` are not anchored to the start of a
+# line and are left untouched.
+tmp="$(mktemp)"
+awk -v nv="${next}" '
+  !done && /^version = "/ { sub(/"[^"]*"/, "\"" nv "\""); done = 1 }
+  { print }
+' "${manifest}" >"${tmp}"
+mv "${tmp}" "${manifest}"
+
+# Keep Cargo.lock's recorded version in sync with the manifest.
+if command -v cargo >/dev/null 2>&1; then
+  cargo update --workspace --offline >/dev/null 2>&1 \
+    || cargo update --workspace >/dev/null 2>&1 \
+    || true
+fi
+
+git add "${manifest}"
+[ -f "${root}/Cargo.lock" ] && git add "${root}/Cargo.lock"
+
+echo "pre-commit: bumped version ${current} -> ${next}"

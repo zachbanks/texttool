@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# texttool post-commit hook: build a release binary and install it to
+# ~/.local/bin after every commit, so the installed `texttool` always matches
+# the latest commit.
+#
+# Runs after the commit is finalized, so a build failure here never blocks the
+# commit itself — it only warns.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "${root}"
+
+version="$(awk -F'"' '/^version = "/ {print $2; exit}' Cargo.toml)"
+echo "post-commit: building texttool ${version} (release)…"
+
+if ! cargo build --release --quiet; then
+  echo "post-commit: release build failed; ~/.local/bin/texttool NOT updated" >&2
+  exit 0
+fi
+
+dest="${HOME}/.local/bin"
+mkdir -p "${dest}"
+install -m 0755 target/release/texttool "${dest}/texttool"
+echo "post-commit: installed texttool ${version} -> ${dest}/texttool"
