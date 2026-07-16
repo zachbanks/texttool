@@ -22,7 +22,7 @@ fn main() -> ExitCode {
     match cli::dispatch(&registry, &matches) {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
-            eprintln!("texttool: error: {message}");
+            eprintln!("tt: error: {message}");
             ExitCode::FAILURE
         }
     }

@@ -2,16 +2,16 @@
 
 A unified, extensible command-line toolkit for text manipulation, written in
 Rust. It merges what used to be separate scripts (`textclean`, `smarttitlecase`,
-…) into one binary with a consistent, colorful interface, and is designed so new
-text operations can be added with a few lines of code.
+…) into one binary — installed as `tt` — with a consistent, colorful interface,
+and is designed so new text operations can be added with a few lines of code.
 
 ## Highlights
 
 - **One binary, many operations** — each operation is a subcommand.
 - **Consistent I/O** — every subcommand reads from file operands or standard
   input and writes to standard output (or `--output <FILE>`).
-- **Colored, discoverable help** — `texttool --help` and
-  `texttool <op> --help` are colorized and example-driven.
+- **Colored, discoverable help** — `tt --help` and
+  `tt <op> --help` are colorized and example-driven.
 - **Extensible by design** — operations implement a single `Transform` trait and
   register themselves; see [Extending](#extending).
 
@@ -36,7 +36,7 @@ make setup          # or: ./scripts/setup-hooks.sh
 ## Usage
 
 ```
-texttool <OPERATION> [FILES]... [OPTIONS]
+tt <OPERATION> [FILES]... [OPTIONS]
 ```
 
 If no files are given, input is read from standard input. Output goes to
@@ -52,7 +52,7 @@ standard output unless `-o/--output <FILE>` is given.
 | `upper`     | `uc`         | Convert text to UPPERCASE                            |
 | `lower`     | `lc`         | Convert text to lowercase                            |
 
-Run `texttool --help` (or `texttool <op> --help`) for the full, colorized list
+Run `tt --help` (or `tt <op> --help`) for the full, colorized list
 of options.
 
 #### `titlecase`
@@ -64,7 +64,7 @@ hyphenated compounds are capitalized part-by-part; spacing and line breaks are
 kept intact.
 
 ```sh
-echo 'the quick brown fox: a tale of two-cities' | texttool titlecase
+echo 'the quick brown fox: a tale of two-cities' | tt titlecase
 # The Quick Brown Fox: A Tale of Two-Cities
 ```
 
@@ -79,8 +79,8 @@ and trims leading/trailing separators.
 | `--unicode`       | Keep all Unicode alphanumerics instead of ASCII only|
 
 ```sh
-echo 'Hello, World!' | texttool slug              # hello-world
-echo 'My Post Title' | texttool slug --sep _      # my_post_title
+echo 'Hello, World!' | tt slug              # hello-world
+echo 'My Post Title' | tt slug --sep _      # my_post_title
 ```
 
 #### `clean`
@@ -100,13 +100,13 @@ indentation), collapses runs of blank lines, and ends with a single newline.
 
 ```sh
 # Uppercase a file
-texttool upper notes.txt
+tt upper notes.txt
 
 # Lowercase from a pipe
-echo 'HELLO' | texttool lower
+echo 'HELLO' | tt lower
 
 # Write the result to a file
-texttool upper input.txt -o SHOUTING.txt
+tt upper input.txt -o SHOUTING.txt
 ```
 
 ## Extending

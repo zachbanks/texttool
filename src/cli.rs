@@ -10,19 +10,19 @@ use crate::registry::Registry;
 use clap::builder::styling::{AnsiColor, Styles};
 use clap::{ArgMatches, Command};
 
-/// Long description shown on `texttool --help`.
+/// Long description shown on `tt --help`.
 const LONG_ABOUT: &str = "\
-texttool is a unified, extensible toolkit for manipulating text.
+tt is a unified, extensible toolkit for manipulating text.
 
 Each operation is exposed as a subcommand. Every subcommand reads from the file
 operands you pass, or from standard input when you pass none, and writes to
 standard output unless you redirect it with --output.
 
 Examples:
-  texttool titlecase notes.txt
-  echo 'the lord of the rings' | texttool titlecase
-  texttool clean --ascii messy.md -o clean.md
-  cat a.txt b.txt | texttool upper";
+  tt titlecase notes.txt
+  echo 'the lord of the rings' | tt titlecase
+  tt clean --ascii messy.md -o clean.md
+  cat a.txt b.txt | tt upper";
 
 /// Colors used throughout help and error output.
 ///
@@ -43,7 +43,7 @@ fn styles() -> Styles {
 /// One subcommand is generated per registered transform, wired with that
 /// transform's own flags plus the shared input/output arguments.
 pub fn build_command(registry: &Registry) -> Command {
-    let mut cmd = Command::new("texttool")
+    let mut cmd = Command::new("tt")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Unified, extensible toolkit for text manipulation")
         .long_about(LONG_ABOUT)

@@ -1,6 +1,6 @@
 [package]
 name = "texttool"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 description = "Unified, extensible command-line toolkit for text manipulation"
 license = "MIT"
@@ -9,7 +9,7 @@ keywords = ["cli", "text", "titlecase", "clean", "formatting"]
 categories = ["command-line-utilities", "text-processing"]
 
 [[bin]]
-name = "texttool"
+name = "tt"
 path = "src/main.rs"
 
 [dependencies]
