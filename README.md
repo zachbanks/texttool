@@ -44,14 +44,28 @@ standard output unless `-o/--output <FILE>` is given.
 
 ### Operations
 
-| Operation   | Aliases | Description                                              |
-|-------------|---------|----------------------------------------------------------|
-| `clean`     |         | Tidy whitespace, line endings, and invisible characters  |
-| `upper`     | `uc`    | Convert text to UPPERCASE                                |
-| `lower`     | `lc`    | Convert text to lowercase                                |
+| Operation   | Aliases      | Description                                         |
+|-------------|--------------|-----------------------------------------------------|
+| `clean`     |              | Tidy whitespace, line endings, invisible characters |
+| `titlecase` | `title`, `tc`| Convert text to smart Title Case                    |
+| `upper`     | `uc`         | Convert text to UPPERCASE                            |
+| `lower`     | `lc`         | Convert text to lowercase                            |
 
-More operations (`titlecase`, `slug`, …) are added in subsequent commits — run
+More operations (`slug`, …) are added in subsequent commits — run
 `texttool --help` for the current list.
+
+#### `titlecase`
+
+Smart title casing: minor words (`a`, `an`, `the`, `of`, `to`, …) stay lowercase
+unless they are the first/last word or begin a subtitle after a colon; acronyms
+and brand names with internal capitals (`NASA`, `iPhone`) are preserved;
+hyphenated compounds are capitalized part-by-part; spacing and line breaks are
+kept intact.
+
+```sh
+echo 'the quick brown fox: a tale of two-cities' | texttool titlecase
+# The Quick Brown Fox: A Tale of Two-Cities
+```
 
 #### `clean`
 

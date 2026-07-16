@@ -67,6 +67,7 @@ pub fn default_registry() -> Registry {
     let mut registry = Registry::new();
     registry
         .register(transforms::Clean)
+        .register(transforms::TitleCase)
         .register(transforms::Upper)
         .register(transforms::Lower);
     registry
