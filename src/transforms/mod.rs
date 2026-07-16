@@ -6,8 +6,10 @@
 
 mod case;
 mod clean;
+mod slug;
 mod titlecase;
 
 pub use case::{Lower, Upper};
 pub use clean::Clean;
+pub use slug::Slug;
 pub use titlecase::TitleCase;

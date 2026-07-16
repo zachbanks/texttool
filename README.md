@@ -48,11 +48,12 @@ standard output unless `-o/--output <FILE>` is given.
 |-------------|--------------|-----------------------------------------------------|
 | `clean`     |              | Tidy whitespace, line endings, invisible characters |
 | `titlecase` | `title`, `tc`| Convert text to smart Title Case                    |
+| `slug`      |              | Slugify text into URL/filename-friendly form        |
 | `upper`     | `uc`         | Convert text to UPPERCASE                            |
 | `lower`     | `lc`         | Convert text to lowercase                            |
 
-More operations (`slug`, …) are added in subsequent commits — run
-`texttool --help` for the current list.
+Run `texttool --help` (or `texttool <op> --help`) for the full, colorized list
+of options.
 
 #### `titlecase`
 
@@ -65,6 +66,21 @@ kept intact.
 ```sh
 echo 'the quick brown fox: a tale of two-cities' | texttool titlecase
 # The Quick Brown Fox: A Tale of Two-Cities
+```
+
+#### `slug`
+
+Lowercases each line, replaces non-alphanumeric runs with a single separator,
+and trims leading/trailing separators.
+
+| Flag              | Effect                                              |
+|-------------------|-----------------------------------------------------|
+| `-s`, `--sep SEP` | Separator to join words with (default `-`)          |
+| `--unicode`       | Keep all Unicode alphanumerics instead of ASCII only|
+
+```sh
+echo 'Hello, World!' | texttool slug              # hello-world
+echo 'My Post Title' | texttool slug --sep _      # my_post_title
 ```
 
 #### `clean`

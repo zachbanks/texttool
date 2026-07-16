@@ -68,6 +68,7 @@ pub fn default_registry() -> Registry {
     registry
         .register(transforms::Clean)
         .register(transforms::TitleCase)
+        .register(transforms::Slug)
         .register(transforms::Upper)
         .register(transforms::Lower);
     registry
