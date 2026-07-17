@@ -13,6 +13,7 @@
 //! - Hyphenated compounds capitalize each part (`Two-Cities`).
 //! - Leading and trailing whitespace is stripped; interior spacing is kept.
 
+use crate::acronyms::{add_acronym_args, build_acronym_set};
 use crate::casing::{AcronymSet, capitalize_first_alpha, core, has_uppercase};
 use crate::transform::Transform;
 use clap::{Arg, ArgAction, ArgMatches, Command};
@@ -97,15 +98,6 @@ fn titlecase_line(line: &str, respect_caps: bool, acronyms: &AcronymSet) -> Stri
     segments.into_iter().map(|s| s.text).collect()
 }
 
-/// Build the acronym set from the shared `--acronyms` / `--no-acronyms` flags.
-fn acronyms_from_args(args: &ArgMatches) -> AcronymSet {
-    let extra: Vec<String> = args
-        .get_many::<String>("acronyms")
-        .map(|values| values.cloned().collect())
-        .unwrap_or_default();
-    AcronymSet::new(!args.get_flag("no-acronyms"), &extra)
-}
-
 impl Transform for TitleCase {
     fn name(&self) -> &'static str {
         "titlecase"
@@ -132,31 +124,18 @@ impl Transform for TitleCase {
     }
 
     fn augment(&self, cmd: Command) -> Command {
-        cmd.arg(
+        let cmd = cmd.arg(
             Arg::new("no-respect-caps")
                 .long("no-respect-caps")
                 .help("Re-case already-capitalized words [e.g. \"iPhone\" -> \"Iphone\"]")
                 .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("acronyms")
-                .long("acronyms")
-                .value_name("LIST")
-                .help("Extra acronyms to fully capitalize [e.g. --acronyms tui,repl: \"tui\" -> \"TUI\"]")
-                .value_delimiter(',')
-                .action(ArgAction::Append),
-        )
-        .arg(
-            Arg::new("no-acronyms")
-                .long("no-acronyms")
-                .help("Disable acronym capitalization [e.g. \"api\" -> \"Api\"]")
-                .action(ArgAction::SetTrue),
-        )
+        );
+        add_acronym_args(cmd)
     }
 
     fn apply(&self, input: &str, args: &ArgMatches) -> Result<String, String> {
         let respect_caps = !args.get_flag("no-respect-caps");
-        let acronyms = acronyms_from_args(args);
+        let acronyms = build_acronym_set(args);
         Ok(input
             .split('\n')
             .map(|line| titlecase_line(line, respect_caps, &acronyms))

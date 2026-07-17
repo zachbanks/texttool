@@ -18,6 +18,7 @@
 //! `--no-respect-caps` lets clean fold shouting ALL-CAPS words back to
 //! lowercase.
 
+use crate::acronyms::{add_acronym_args, build_acronym_set};
 use crate::casing::{
     AcronymSet, capitalize_first_alpha, capitalize_sentences, has_uppercase, is_all_caps,
     is_single_letter, segment,
@@ -186,68 +187,56 @@ impl Transform for Clean {
     }
 
     fn augment(&self, cmd: Command) -> Command {
-        cmd.arg(
-            Arg::new("ascii")
-                .long("ascii")
-                .help("Fold smart punctuation to ASCII [e.g. \"“hi” — it’s\" -> '\"hi\" - it's']")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("no-squeeze")
-                .long("no-squeeze")
-                .help("Keep repeated spaces [e.g. \"a    b\" -> \"a    b\"]")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("no-capitalize-singles")
-                .long("no-capitalize-singles")
-                .help("Do not capitalize standalone single letters [e.g. \"say i\" -> \"say i\"]")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("no-capitalize-sentences")
-                .long("no-capitalize-sentences")
-                .help("Do not capitalize the first letter of sentences [e.g. \"hi. bye\" -> \"hi. bye\"]")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("no-trailing-punctuation")
-                .long("no-trailing-punctuation")
-                .help("Strip trailing sentence punctuation [e.g. \"Hi there.\" -> \"Hi there\"]")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("acronyms")
-                .long("acronyms")
-                .value_name("LIST")
-                .help("Extra acronyms to capitalize [e.g. --acronyms tui: \"tui\" -> \"TUI\"]")
-                .value_delimiter(',')
-                .action(ArgAction::Append),
-        )
-        .arg(
-            Arg::new("no-acronyms")
-                .long("no-acronyms")
-                .help("Disable acronym capitalization [e.g. \"api\" stays \"api\"]")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("no-respect-caps")
-                .long("no-respect-caps")
-                .help("Fold shouting ALL-CAPS words to lowercase [e.g. \"LOUD\" -> \"loud\"]")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("keep-blank-lines")
-                .long("keep-blank-lines")
-                .help("Keep consecutive blank lines [e.g. \"a\\n\\n\\nb\" keeps both blanks]")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("no-trailing-newline")
-                .long("no-trailing-newline")
-                .help("Do not force a trailing newline [e.g. \"hi\\n\" -> \"hi\"]")
-                .action(ArgAction::SetTrue),
-        )
+        let cmd = cmd
+            .arg(
+                Arg::new("ascii")
+                    .long("ascii")
+                    .help("Fold smart punctuation to ASCII [e.g. \"“hi” — it’s\" -> '\"hi\" - it's']")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("no-squeeze")
+                    .long("no-squeeze")
+                    .help("Keep repeated spaces [e.g. \"a    b\" -> \"a    b\"]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("no-capitalize-singles")
+                    .long("no-capitalize-singles")
+                    .help("Do not capitalize standalone single letters [e.g. \"say i\" -> \"say i\"]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("no-capitalize-sentences")
+                    .long("no-capitalize-sentences")
+                    .help("Do not capitalize the first letter of sentences [e.g. \"hi. bye\" -> \"hi. bye\"]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("no-trailing-punctuation")
+                    .long("no-trailing-punctuation")
+                    .help("Strip trailing sentence punctuation [e.g. \"Hi there.\" -> \"Hi there\"]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("no-respect-caps")
+                    .long("no-respect-caps")
+                    .help("Fold shouting ALL-CAPS words to lowercase [e.g. \"LOUD\" -> \"loud\"]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("keep-blank-lines")
+                    .long("keep-blank-lines")
+                    .help("Keep consecutive blank lines [e.g. \"a\\n\\n\\nb\" keeps both blanks]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("no-trailing-newline")
+                    .long("no-trailing-newline")
+                    .help("Do not force a trailing newline [e.g. \"hi\\n\" -> \"hi\"]")
+                    .action(ArgAction::SetTrue),
+            );
+        add_acronym_args(cmd)
     }
 
     fn apply(&self, input: &str, args: &ArgMatches) -> Result<String, String> {
@@ -258,7 +247,7 @@ impl Transform for Clean {
         let cap_sentences = !args.get_flag("no-capitalize-sentences");
         let respect_caps = !args.get_flag("no-respect-caps");
         let strip_punct = args.get_flag("no-trailing-punctuation");
-        let acronyms = acronyms_from_args(args);
+        let acronyms = build_acronym_set(args);
 
         let mut text = Self::normalize_newlines(input);
         if args.get_flag("ascii") {
@@ -299,15 +288,6 @@ impl Transform for Clean {
         }
         Ok(result)
     }
-}
-
-/// Build the acronym set from the shared `--acronyms` / `--no-acronyms` flags.
-fn acronyms_from_args(args: &ArgMatches) -> AcronymSet {
-    let extra: Vec<String> = args
-        .get_many::<String>("acronyms")
-        .map(|values| values.cloned().collect())
-        .unwrap_or_default();
-    AcronymSet::new(!args.get_flag("no-acronyms"), &extra)
 }
 
 #[cfg(test)]

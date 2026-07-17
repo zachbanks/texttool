@@ -95,6 +95,7 @@ while interior spacing and line breaks are kept.
 |---------------------|-----------------------------------------------------------|
 | `--no-respect-caps` | Re-case already-capitalized words instead of keeping them |
 | `--acronyms LIST`   | Extra comma-separated acronyms to capitalize              |
+| `--acronyms-file P` | Read extra acronyms from a file                           |
 | `--no-acronyms`     | Disable acronym capitalization                            |
 
 ```sh
@@ -138,6 +139,7 @@ newline.
 | `--no-capitalize-sentences` | Do not capitalize the first letter of sentences|
 | `--no-trailing-punctuation` | Strip trailing `. , ; : ! ?` from each line    |
 | `--acronyms LIST`           | Extra comma-separated acronyms to capitalize   |
+| `--acronyms-file P`         | Read extra acronyms from a file                |
 | `--no-acronyms`             | Disable acronym capitalization                 |
 | `--no-respect-caps`         | Fold shouting ALL-CAPS words back to lowercase |
 | `--keep-blank-lines`        | Keep consecutive blank lines                   |
@@ -149,6 +151,33 @@ Each flag's `--help` entry includes an example transformation.
 echo 'i visit nasa. i learn'  | tt clean                          # I visit NASA. I learn
 echo 'Hello world.'           | tt clean --no-trailing-punctuation # Hello world
 echo 'THIS is LOUD'           | tt clean --no-respect-caps         # This is loud
+```
+
+#### Configuring acronyms
+
+Both `clean` and `titlecase` capitalize recognized acronyms. The recognized set
+is the built-in list plus anything you configure, from three layered sources:
+
+1. **A persistent config file** — so you don't retype `--acronyms` every time.
+   The first of these that exists is loaded:
+   - `$TEXTTOOL_ACRONYMS_FILE`
+   - `$XDG_CONFIG_HOME/texttool/acronyms.txt`
+   - `~/.config/texttool/acronyms.txt`
+
+   One acronym per line (or comma/space separated); `#` starts a comment:
+   ```
+   # ~/.config/texttool/acronyms.txt
+   tui, repl
+   yolo   # add whatever you like
+   ```
+2. **A per-invocation file**: `--acronyms-file <PATH>`.
+3. **Inline**: `--acronyms a,b,c`.
+
+`--no-acronyms` disables acronym capitalization entirely (built-ins included).
+
+```sh
+echo 'the tui repl' | tt titlecase --acronyms tui,repl   # The TUI REPL
+echo 'the api docs' | tt titlecase --no-acronyms          # The Api Docs
 ```
 
 #### Identifier cases (`camel`, `pascal`, `snake`, `kebab`, `constant`)
@@ -229,12 +258,14 @@ Follows [semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 
 Because the hook always bumps the patch, cutting an exact minor/major version
 uses a helper that sets the version and commits with `--no-verify` (bypassing
-the hook), then tags it:
+the hook), tags it, pushes, and creates a GitHub Release with generated notes:
 
 ```sh
-make release VERSION=0.2.0      # commit "Release v0.2.0" + tag v0.2.0
-git push origin main --tags     # publish the release
+make release VERSION=0.2.0      # commit + tag + push + `gh release create`
 ```
+
+Releases are published at
+[github.com/zachbanks/texttool/releases](https://github.com/zachbanks/texttool/releases).
 
 ## License
 

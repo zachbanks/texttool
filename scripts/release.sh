@@ -45,6 +45,24 @@ git add Cargo.toml Cargo.lock
 # --no-verify skips the pre-commit patch bump so the version lands exactly.
 git commit --no-verify -m "Release v${version}"
 git tag -a "v${version}" -m "v${version}"
-
 echo "release: committed and tagged v${version}"
-echo "release: push it with -> git push origin main --tags"
+
+# Publish: push the branch + tag, then cut a GitHub Release with generated notes.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if git remote get-url origin >/dev/null 2>&1; then
+  git push origin "${branch}" --tags
+  echo "release: pushed ${branch} and tag v${version}"
+
+  if command -v gh >/dev/null 2>&1; then
+    gh release create "v${version}" \
+      --title "v${version}" \
+      --generate-notes \
+      --verify-tag \
+      --latest
+    echo "release: created GitHub Release v${version}"
+  else
+    echo "release: gh not found; create the GitHub Release manually" >&2
+  fi
+else
+  echo "release: no 'origin' remote; skipped push and GitHub Release" >&2
+fi
