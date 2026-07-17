@@ -188,6 +188,26 @@ make fmt            # format
 make test           # run tests
 ```
 
+## Versioning
+
+Follows [semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
+
+- **PATCH** — backward-compatible bug fixes. The `pre-commit` hook bumps this
+  automatically on every commit, so ordinary commits need no manual step.
+- **MINOR** — backward-compatible new features (a new subcommand or flag).
+- **MAJOR** — breaking changes (renamed/removed command or flag, changed
+  default output). Pre-1.0, a **minor** bump (`0.x`) is used for breaking
+  changes, per semver's `0.y` convention.
+
+Because the hook always bumps the patch, cutting an exact minor/major version
+uses a helper that sets the version and commits with `--no-verify` (bypassing
+the hook), then tags it:
+
+```sh
+make release VERSION=0.2.0      # commit "Release v0.2.0" + tag v0.2.0
+git push origin main --tags     # publish the release
+```
+
 ## License
 
 [MIT](LICENSE) © Zach Banks

@@ -1,5 +1,5 @@
 # Convenience tasks for developing texttool.
-.PHONY: all fmt fmt-check lint test check build install setup clean
+.PHONY: all fmt fmt-check lint test check build install setup release clean
 
 all: check
 
@@ -33,6 +33,11 @@ install:
 ## setup: enable the auto-bump / auto-install git hooks
 setup:
 	./scripts/setup-hooks.sh
+
+## release: cut an exact version + tag, e.g. `make release VERSION=0.2.0`
+release:
+	@test -n "$(VERSION)" || { echo "usage: make release VERSION=x.y.z"; exit 1; }
+	./scripts/release.sh "$(VERSION)"
 
 ## clean: remove build artifacts
 clean:
