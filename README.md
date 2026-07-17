@@ -48,6 +48,7 @@ standard output unless `-o/--output <FILE>` is given.
 |-------------|------------------------|--------------------------------------------------|
 | `clean`     |                        | Tidy whitespace, line endings, invisible chars   |
 | `squeeze`   | `sq`, `normalize-ws`   | Collapse excess spaces, tabs, and newlines       |
+| `strip`     | `text-strip`           | Strip decorative punctuation/noise from edges    |
 | `titlecase` | `title`, `tc`          | Convert text to smart Title Case                 |
 | `slug`      |                        | Slugify text into URL/filename-friendly form     |
 | `camel`     | `camelcase`            | Convert text to `camelCase`                       |
@@ -82,7 +83,28 @@ printf 'a\n\n\n\n\nb'         | tt squeeze --max-newlines    # a<blank>b (2 newl
 printf 'a\n\n\n\nb'           | tt squeeze --max-newlines 3  # a + 3 newlines + b
 ```
 
-#### `titlecase`
+#### `strip`
+
+Removes decorative/markup punctuation (quotes, markdown rules, bullets,
+separators) plus whitespace and control chars from the **edges** of the text,
+leaving interior content untouched. Sentence-ending `.`/`!`/`?` are kept unless
+`--aggressive`.
+
+| Flag                | Effect                                                    |
+|---------------------|-----------------------------------------------------------|
+| `--no-punct`        | Only trim whitespace/control chars; keep edge punctuation |
+| `--aggressive`      | Also strip edge sentence punctuation (`. ! ?`)            |
+| `--collapse-blanks` | Collapse runs of blank lines into one                     |
+| `-s`, `--squeeze`   | Collapse interior whitespace; strip per-line indentation  |
+| `-l`, `--strip-lines`| Strip decorative tokens on every line, not just the edges|
+| `-n`, `--no-newline`| Do not append a trailing newline                          |
+
+```sh
+echo '  --- hello ---  ' | tt strip                  # hello
+echo '"Done."'           | tt strip                  # Done.  (sentence dot kept)
+echo '"Done."'           | tt strip --aggressive     # Done
+printf '*** heading ***' | tt strip --strip-lines    # heading
+```
 
 Smart title casing: minor words (`a`, `an`, `the`, `of`, `to`, …) stay lowercase
 unless they are the first/last word or begin a subtitle after a colon; known
