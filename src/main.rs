@@ -10,6 +10,7 @@ mod acronyms;
 mod casing;
 mod cli;
 mod io;
+mod patterns;
 mod registry;
 mod transform;
 mod transforms;

@@ -6,6 +6,7 @@
 
 mod case;
 mod clean;
+mod extract;
 mod identifier;
 mod mock;
 mod slug;
@@ -15,6 +16,7 @@ mod titlecase;
 
 pub use case::{Lower, Upper};
 pub use clean::Clean;
+pub use extract::Extract;
 pub use identifier::{Camel, Constant, Kebab, Pascal, Snake};
 pub use mock::Mock;
 pub use slug::Slug;

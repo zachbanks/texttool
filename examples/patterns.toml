@@ -1,0 +1,38 @@
+# Example texttool `extract` configuration.
+#
+# Copy to one of these (first found wins):
+#   $TEXTTOOL_PATTERNS_FILE
+#   $XDG_CONFIG_HOME/texttool/patterns.toml
+#   ~/.config/texttool/patterns.toml
+# or pass with:  tt extract --patterns-file path/to/patterns.toml
+#
+# Entries are an array of tables, applied IN ORDER on top of the built-ins:
+#   - a `name` that matches a built-in overrides that built-in's regex
+#   - `enabled = false` disables a built-in
+#   - a new `name` appends a new category (shown after the built-ins)
+#
+# Patterns use Rust `regex` crate syntax — NO lookaround or backreferences.
+# Use single-quoted TOML strings ('''...''') so backslashes stay literal.
+
+# Override a built-in (stricter US phone format):
+[[category]]
+name = "Phone Numbers"
+regex = '''\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}'''
+
+# Add your own categories:
+[[category]]
+name = "Ticket IDs"
+regex = '''\b[A-Z]{2,}-\d+\b'''
+
+[[category]]
+name = "Hashtags"
+regex = '''#\w+'''
+
+[[category]]
+name = "Mentions"
+regex = '''@\w+'''
+
+# Turn off a built-in you don't want:
+[[category]]
+name = "IP Addresses"
+enabled = false

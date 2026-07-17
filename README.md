@@ -49,6 +49,7 @@ standard output unless `-o/--output <FILE>` is given.
 | `clean`     |                        | Tidy whitespace, line endings, invisible chars   |
 | `squeeze`   | `sq`, `normalize-ws`   | Collapse excess spaces, tabs, and newlines       |
 | `strip`     | `text-strip`           | Strip decorative punctuation/noise from edges    |
+| `extract`   | `infoparse`            | Pull phones/emails/dates/… into Markdown sections|
 | `titlecase` | `title`, `tc`          | Convert text to smart Title Case                 |
 | `slug`      |                        | Slugify text into URL/filename-friendly form     |
 | `camel`     | `camelcase`            | Convert text to `camelCase`                       |
@@ -105,6 +106,46 @@ echo '"Done."'           | tt strip                  # Done.  (sentence dot kept
 echo '"Done."'           | tt strip --aggressive     # Done
 printf '*** heading ***' | tt strip --strip-lines    # heading
 ```
+
+#### `extract`
+
+Pulls structured information out of text using per-category regular expressions,
+grouped under Markdown headings. Built-in categories: Phone Numbers, Emails,
+URLs, Addresses (rough), Dates, Times, SSNs, Credit Cards, IP Addresses.
+
+| Flag                 | Effect                                              |
+|----------------------|-----------------------------------------------------|
+| `--only LIST`        | Only these categories (e.g. `--only emails,phones`) |
+| `--no-headers`       | Print values only, no `# Heading` lines             |
+| `--show-empty`       | Include categories that had no matches              |
+| `--no-dedup`         | Keep duplicate matches                              |
+| `--patterns-file P`  | Load extra/override categories from a TOML file     |
+| `--list`             | List available categories and their patterns        |
+
+```sh
+echo 'Call 415-555-0198 or jim@example.com by 12/25/2026' | tt extract
+# # Phone Numbers
+# 415-555-0198
+#
+# # Emails
+# jim@example.com
+#
+# # Dates
+# 12/25/2026
+```
+
+**Configurable categories.** The recognized set is the built-ins plus a TOML
+config, from `$TEXTTOOL_PATTERNS_FILE`, else
+`$XDG_CONFIG_HOME/texttool/patterns.toml`, else
+`~/.config/texttool/patterns.toml` (or `--patterns-file`). A `[[category]]` whose
+`name` matches a built-in overrides its regex, `enabled = false` disables one, and
+a new name appends a category. See [`examples/patterns.toml`](examples/patterns.toml).
+
+> Patterns use Rust's `regex` crate syntax — **no lookaround or backreferences**.
+> Address matching is a best-effort heuristic; the extractor finds patterns but
+> does not validate them (no Luhn check on cards).
+
+#### `titlecase`
 
 Smart title casing: minor words (`a`, `an`, `the`, `of`, `to`, …) stay lowercase
 unless they are the first/last word or begin a subtitle after a colon; known

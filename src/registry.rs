@@ -69,6 +69,7 @@ pub fn default_registry() -> Registry {
         .register(transforms::Clean)
         .register(transforms::Squeeze)
         .register(transforms::Strip)
+        .register(transforms::Extract)
         .register(transforms::TitleCase)
         .register(transforms::Slug)
         .register(transforms::Camel)
