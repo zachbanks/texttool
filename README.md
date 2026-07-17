@@ -219,6 +219,7 @@ extension, splits on every common filename delimiter (`-`, `_`, `.`, spaces) and
 | Flag            | Effect                                                     |
 |-----------------|------------------------------------------------------------|
 | `-t`, `--title` | Title Case each word instead of clean's sentence casing    |
+| `--keep-dates`  | Keep dates intact (delimiters and all) instead of splitting |
 
 ```sh
 echo 'Thorne-magnesium-receipt-2026-07-17.pdf' | tt humanize
@@ -226,7 +227,12 @@ echo 'Thorne-magnesium-receipt-2026-07-17.pdf' | tt humanize
 echo 'annual_api_report.docx' | tt humanize          # Annual API report
 echo 'annual_api_report.docx' | tt humanize --title  # Annual API Report
 echo 'getHTTPResponse.log'     | tt humanize          # Get HTTP Response
+echo 'receipt-2026-07-17.pdf'  | tt humanize --keep-dates  # receipt 2026-07-17
 ```
+
+`--keep-dates` matches dates with the **Dates** category from your `extract`
+patterns config (`patterns.toml`), so it honors any override you've made there
+(and `--patterns-file`).
 
 #### `replace`
 

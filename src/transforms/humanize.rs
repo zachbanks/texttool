@@ -10,6 +10,7 @@
 //!
 //! `Thorne-magnesium-receipt-2026-07-17.pdf` -> `Thorne magnesium receipt 2026 07 17`
 
+use crate::patterns::{add_pattern_args, load_categories};
 use crate::transform::Transform;
 use crate::transforms::{Clean, TitleCase, Unslug};
 use clap::{Arg, ArgAction, ArgMatches, Command};
@@ -47,32 +48,74 @@ impl Transform for Humanize {
     }
 
     fn augment(&self, cmd: Command) -> Command {
-        cmd.arg(
-            Arg::new("title")
-                .short('t')
-                .long("title")
-                .help("Title Case each word instead of sentence casing [e.g. \"my file\" -> \"My File\"]")
-                .action(ArgAction::SetTrue),
-        )
+        let cmd = cmd
+            .arg(
+                Arg::new("title")
+                    .short('t')
+                    .long("title")
+                    .help("Title Case each word instead of sentence casing [e.g. \"my file\" -> \"My File\"]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("keep-dates")
+                    .long("keep-dates")
+                    .help("Keep dates intact, delimiters and all [e.g. \"a-2026-07-17\" -> \"A 2026-07-17\"]")
+                    .action(ArgAction::SetTrue),
+            );
+        // --patterns-file, so the Dates pattern used by --keep-dates is configurable.
+        add_pattern_args(cmd)
     }
 
     fn apply(&self, input: &str, args: &ArgMatches) -> Result<String, String> {
+        // 0. Optionally shield dates (delimiters and all) behind placeholders
+        //    that survive unslug/clean untouched, restored at the very end.
+        let mut protected: Vec<String> = Vec::new();
+        let mut work = input.to_string();
+        if args.get_flag("keep-dates") {
+            // Underscore is a regex word char, so `\b` in the Dates pattern won't
+            // fire next to one. Normalize `_` -> `-` first (transparent, since
+            // unslug treats both as delimiters) so `_`-delimited dates match too.
+            work = work.replace('_', "-");
+            let categories = load_categories(args)?;
+            if let Some(dates) = categories
+                .iter()
+                .find(|c| c.name.eq_ignore_ascii_case("dates"))
+            {
+                let re =
+                    Regex::new(&dates.regex).map_err(|e| format!("invalid Dates pattern: {e}"))?;
+                work = re
+                    .replace_all(&work, |caps: &regex::Captures| {
+                        let token = format!("DATEHOLDER{}", protected.len());
+                        protected.push(caps[0].to_string());
+                        token
+                    })
+                    .into_owned();
+            }
+        }
+
         // 1. Drop a trailing file extension on each line (.pdf, .jpeg, …).
         let ext = Regex::new(r"(?m)\.[A-Za-z0-9]{1,6}$").expect("valid regex");
-        let no_ext = ext.replace_all(input, "").into_owned();
+        let no_ext = ext.replace_all(&work, "").into_owned();
 
         // 2. Unslug: all delimiters + camelCase boundaries -> spaced words.
         let unslug_args = default_matches("unslug", |c| Unslug.augment(c));
         let spaced = Unslug.apply(&no_ext, &unslug_args)?;
 
         // 3. Case it: Title Case each word (--title) or clean's sentence casing.
-        if args.get_flag("title") {
+        let mut cased = if args.get_flag("title") {
             let title_args = default_matches("titlecase", |c| TitleCase.augment(c));
-            TitleCase.apply(&spaced, &title_args)
+            TitleCase.apply(&spaced, &title_args)?
         } else {
             let clean_args = default_matches("clean", |c| Clean.augment(c));
-            Clean.apply(&spaced, &clean_args)
+            Clean.apply(&spaced, &clean_args)?
+        };
+
+        // 4. Restore protected dates (high index first so DATEHOLDER1 doesn't
+        //    match inside DATEHOLDER10).
+        for i in (0..protected.len()).rev() {
+            cased = cased.replace(&format!("DATEHOLDER{i}"), &protected[i]);
         }
+        Ok(cased)
     }
 }
 
@@ -112,6 +155,36 @@ mod tests {
     #[test]
     fn no_extension_is_fine() {
         assert_eq!(humanize("first-draft"), "First draft\n");
+    }
+
+    #[test]
+    fn keep_dates_preserves_delimiters() {
+        assert_eq!(
+            Humanize
+                .apply("Thorne-receipt-2026-07-17.pdf", &args(&["--keep-dates"]))
+                .unwrap(),
+            "Thorne receipt 2026-07-17\n"
+        );
+    }
+
+    #[test]
+    fn keep_dates_with_slash_date() {
+        assert_eq!(
+            Humanize
+                .apply("invoice_12/25/2026_final.pdf", &args(&["--keep-dates"]))
+                .unwrap(),
+            "Invoice 12/25/2026 final\n"
+        );
+    }
+
+    #[test]
+    fn without_keep_dates_the_date_is_split() {
+        assert_eq!(
+            Humanize
+                .apply("Thorne-receipt-2026-07-17.pdf", &args(&[]))
+                .unwrap(),
+            "Thorne receipt 2026 07 17\n"
+        );
     }
 
     #[test]
