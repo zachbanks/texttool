@@ -261,9 +261,6 @@ impl Transform for Clean {
             .map(|line| {
                 let mut out = Self::tidy_line(line, squeeze);
                 out = Self::apply_word_casing(&out, respect_caps, capitalize_singles, &acronyms);
-                if cap_sentences {
-                    out = capitalize_sentences(&out);
-                }
                 if strip_punct {
                     out = Self::strip_trailing_punct(&out);
                 }
@@ -283,6 +280,12 @@ impl Transform for Clean {
         }
 
         let mut result = lines.join("\n");
+        // Sentence casing runs over the whole text (newlines are neutral) so it
+        // only capitalizes the very start and words after . ! ? — not every
+        // line start, which would wrongly capitalize wrapped prose.
+        if cap_sentences {
+            result = capitalize_sentences(&result);
+        }
         if trailing_newline && !result.is_empty() {
             result.push('\n');
         }
@@ -428,9 +431,11 @@ mod tests {
 
     #[test]
     fn collapses_blank_line_runs() {
+        // Only the start-of-text word is capitalized; the second line has no
+        // preceding sentence-ending punctuation, so it stays lowercase.
         assert_eq!(
             Clean.apply("go\n\n\n\ngo\n", &args(&[])).unwrap(),
-            "Go\n\nGo\n"
+            "Go\n\ngo\n"
         );
     }
 
@@ -440,7 +445,23 @@ mod tests {
             Clean
                 .apply("go\n\n\n\ngo", &args(&["--keep-blank-lines"]))
                 .unwrap(),
-            "Go\n\n\n\nGo\n"
+            "Go\n\n\n\ngo\n"
+        );
+    }
+
+    #[test]
+    fn sentence_casing_does_not_capitalize_wrapped_lines() {
+        // A sentence wrapped across lines keeps the continuation lowercase…
+        assert_eq!(
+            Clean
+                .apply("the quick brown\nfox jumps", &args(&[]))
+                .unwrap(),
+            "The quick brown\nfox jumps\n"
+        );
+        // …but a real sentence break (period) still capitalizes across the line.
+        assert_eq!(
+            Clean.apply("one thing.\ntwo things", &args(&[])).unwrap(),
+            "One thing.\nTwo things\n"
         );
     }
 

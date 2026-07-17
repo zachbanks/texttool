@@ -127,7 +127,8 @@ echo 'My Post Title' | tt slug --sep _      # my_post_title
 Normalizes line endings to LF, applies Unicode NFC, strips control/zero-width
 characters, removes trailing whitespace, squeezes repeated spaces (preserving
 indentation), fixes casing (recognized acronyms → uppercase, standalone single
-letters → uppercase, first letter of each sentence → uppercase, while respecting
+letters → uppercase, first letter of each sentence → uppercase — sentence starts
+only, so wrapped lines aren't over-capitalized — while respecting
 already-capitalized words), collapses runs of blank lines, and ends with a single
 newline.
 

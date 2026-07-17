@@ -200,11 +200,14 @@ impl AcronymSet {
     }
 }
 
-/// Capitalize the first letter of each sentence in a line.
+/// Capitalize the first letter of each sentence.
 ///
-/// A sentence starts at the beginning of the line and after any `.`, `!`, or
-/// `?`. Only lowercase letters are raised — existing capitals are left intact —
-/// and non-letters (digits, quotes, brackets) never trigger capitalization.
+/// Intended to run over a whole block of text: a sentence starts at the very
+/// beginning and after any `.`, `!`, or `?`. Newlines are neutral — they neither
+/// start nor end a sentence — so a sentence wrapped across lines does not get
+/// its continuation capitalized. Only lowercase letters are raised (existing
+/// capitals are kept), and non-letters (digits, quotes, brackets) never trigger
+/// capitalization.
 pub fn capitalize_sentences(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut expect_capital = true;
@@ -328,5 +331,11 @@ mod tests {
         // Existing capitals kept; digits do not trigger capitalization.
         assert_eq!(capitalize_sentences("3 cats. iOS wins"), "3 cats. IOS wins");
         assert_eq!(capitalize_sentences("(hi) there"), "(Hi) there");
+    }
+
+    #[test]
+    fn sentence_capitalization_treats_newlines_as_neutral() {
+        // Capitalize after a period across a newline, but not a wrapped line.
+        assert_eq!(capitalize_sentences("one.\ntwo\nthree"), "One.\nTwo\nthree");
     }
 }
