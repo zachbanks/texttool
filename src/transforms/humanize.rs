@@ -11,8 +11,8 @@
 //! `Thorne-magnesium-receipt-2026-07-17.pdf` -> `Thorne magnesium receipt 2026 07 17`
 
 use crate::transform::Transform;
-use crate::transforms::{Clean, Unslug};
-use clap::{ArgMatches, Command};
+use crate::transforms::{Clean, TitleCase, Unslug};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use regex::Regex;
 
 /// Filename/slug → readable text.
@@ -46,7 +46,17 @@ impl Transform for Humanize {
         &["readable"]
     }
 
-    fn apply(&self, input: &str, _args: &ArgMatches) -> Result<String, String> {
+    fn augment(&self, cmd: Command) -> Command {
+        cmd.arg(
+            Arg::new("title")
+                .short('t')
+                .long("title")
+                .help("Title Case each word instead of sentence casing [e.g. \"my file\" -> \"My File\"]")
+                .action(ArgAction::SetTrue),
+        )
+    }
+
+    fn apply(&self, input: &str, args: &ArgMatches) -> Result<String, String> {
         // 1. Drop a trailing file extension on each line (.pdf, .jpeg, …).
         let ext = Regex::new(r"(?m)\.[A-Za-z0-9]{1,6}$").expect("valid regex");
         let no_ext = ext.replace_all(input, "").into_owned();
@@ -55,9 +65,14 @@ impl Transform for Humanize {
         let unslug_args = default_matches("unslug", |c| Unslug.augment(c));
         let spaced = Unslug.apply(&no_ext, &unslug_args)?;
 
-        // 3. Clean: whitespace + casing, with clean's defaults.
-        let clean_args = default_matches("clean", |c| Clean.augment(c));
-        Clean.apply(&spaced, &clean_args)
+        // 3. Case it: Title Case each word (--title) or clean's sentence casing.
+        if args.get_flag("title") {
+            let title_args = default_matches("titlecase", |c| TitleCase.augment(c));
+            TitleCase.apply(&spaced, &title_args)
+        } else {
+            let clean_args = default_matches("clean", |c| Clean.augment(c));
+            Clean.apply(&spaced, &clean_args)
+        }
     }
 }
 
@@ -65,12 +80,15 @@ impl Transform for Humanize {
 mod tests {
     use super::*;
 
-    fn no_args() -> ArgMatches {
-        Command::new("t").get_matches_from(["t"])
+    fn args(extra: &[&str]) -> ArgMatches {
+        let cmd = Humanize.augment(Command::new("humanize"));
+        let mut argv = vec!["humanize"];
+        argv.extend_from_slice(extra);
+        cmd.get_matches_from(argv)
     }
 
     fn humanize(input: &str) -> String {
-        Humanize.apply(input, &no_args()).unwrap()
+        Humanize.apply(input, &args(&[])).unwrap()
     }
 
     #[test]
@@ -94,5 +112,22 @@ mod tests {
     #[test]
     fn no_extension_is_fine() {
         assert_eq!(humanize("first-draft"), "First draft\n");
+    }
+
+    #[test]
+    fn title_flag_title_cases_each_word() {
+        assert_eq!(
+            Humanize
+                .apply("my_vacation.photo.JPG", &args(&["--title"]))
+                .unwrap(),
+            "My Vacation Photo"
+        );
+        // Acronyms still capitalized; minor words stay lowercase.
+        assert_eq!(
+            Humanize
+                .apply("annual_api_report_of_the_year.docx", &args(&["--title"]))
+                .unwrap(),
+            "Annual API Report of the Year"
+        );
     }
 }

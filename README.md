@@ -214,13 +214,18 @@ echo 'getHTTPResponse'             | tt unslug   # get HTTP Response
 Turns a filename or slug into clean, readable text: drops a trailing file
 extension, splits on every common filename delimiter (`-`, `_`, `.`, spaces) and
 `camelCase`/`ACRONYM` boundaries, then cleans whitespace and casing. Composes
-`unslug` + `clean`.
+`unslug` + `clean` (or `titlecase` with `-t`).
+
+| Flag            | Effect                                                     |
+|-----------------|------------------------------------------------------------|
+| `-t`, `--title` | Title Case each word instead of clean's sentence casing    |
 
 ```sh
 echo 'Thorne-magnesium-receipt-2026-07-17.pdf' | tt humanize
 # Thorne magnesium receipt 2026 07 17
-echo 'annual_api_report.docx' | tt humanize        # Annual API report
-echo 'getHTTPResponse.log'     | tt humanize        # Get HTTP Response
+echo 'annual_api_report.docx' | tt humanize          # Annual API report
+echo 'annual_api_report.docx' | tt humanize --title  # Annual API Report
+echo 'getHTTPResponse.log'     | tt humanize          # Get HTTP Response
 ```
 
 #### `replace`
