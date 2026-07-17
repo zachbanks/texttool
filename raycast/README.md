@@ -1,17 +1,21 @@
 # Raycast script commands for `tt`
 
-Two [Raycast script commands](https://github.com/raycast/script-commands) that
-run [`tt`](../README.md) on the clipboard (or on text you type):
+[Raycast script commands](https://github.com/raycast/script-commands) that run
+[`tt`](../README.md) on the clipboard (or on text you type):
 
 | Command          | Runs                        | Icon |
 |------------------|-----------------------------|------|
 | `Clean Text`     | `tt clean`                  | 🧹   |
 | `Title Case`     | `tt titlecase`              | 🔠   |
+| `Extract Info`   | `tt extract` (full output)  | 🔎   |
 | `Transform Text` | any `tt` op (dropdown)      | 🧰   |
 
 `Transform Text` shows a **dropdown** of every operation (clean, titlecase,
-slug, squeeze, upper, lower, camel, pascal, snake, kebab, constant, mock) — pick
-one and it runs on your text.
+strip, extract, slug, squeeze, upper, lower, camel, pascal, snake, kebab,
+constant, mock) — pick one and it runs on your text.
+
+`Extract Info` uses full-output mode to display the Markdown result in Raycast; a
+second optional argument limits categories (e.g. `emails,phones`).
 
 All take an **optional** text argument. With no argument they read the clipboard
 (`pbpaste`); either way the result is copied back to the clipboard (`pbcopy`) and
