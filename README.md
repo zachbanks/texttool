@@ -141,6 +141,16 @@ config, from `$TEXTTOOL_PATTERNS_FILE`, else
 `name` matches a built-in overrides its regex, `enabled = false` disables one, and
 a new name appends a category. See [`examples/patterns.toml`](examples/patterns.toml).
 
+If a pattern has a **capturing group**, only the first group is reported — so a
+pattern can anchor on a label yet output just the value:
+
+```toml
+[[category]]
+name = "Order Numbers"
+regex = '''(?i)\border\s*(?:#|no\.?|number)\s*:?\s*([A-Za-z0-9-]*\d[A-Za-z0-9-]*)'''
+# "Order # WK32338412" -> WK32338412
+```
+
 > Patterns use Rust's `regex` crate syntax — **no lookaround or backreferences**.
 > Address matching is a best-effort heuristic; the extractor finds patterns but
 > does not validate them (no Luhn check on cards).

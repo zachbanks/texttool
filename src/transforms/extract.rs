@@ -60,9 +60,16 @@ impl Extract {
     }
 
     /// Find matches for one category, de-duplicated in first-seen order.
+    ///
+    /// If the pattern has a capturing group, the first group is reported instead
+    /// of the whole match — so a pattern can anchor on a label (e.g.
+    /// `Order #\s*(\S+)`) but output only the captured value.
     fn matches(regex: &Regex, input: &str, dedup: bool) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
-        for m in regex.find_iter(input) {
+        for caps in regex.captures_iter(input) {
+            let Some(m) = caps.get(1).or_else(|| caps.get(0)) else {
+                continue;
+            };
             let value = m.as_str().trim().to_string();
             if value.is_empty() {
                 continue;
@@ -91,8 +98,10 @@ impl Transform for Extract {
              expressions, grouped under Markdown headings. Built-in categories \
              (Phone Numbers, Emails, URLs, Addresses, Dates, Times, SSNs, Credit \
              Cards, IP Addresses) can be overridden or extended via a TOML config \
-             file; see --patterns-file. Select specific categories with --only \
-             and omit headings with --no-headers.",
+             file; see --patterns-file. If a pattern has a capturing group, only \
+             the first group is reported, so a pattern can anchor on a label \
+             (e.g. `Order #\\s*(\\S+)`) yet output just the value. Select specific \
+             categories with --only and omit headings with --no-headers.",
         )
     }
 
@@ -264,6 +273,22 @@ mod tests {
     fn list_shows_categories() {
         let out = extract("", &["--list", "--only", "emails"]);
         assert!(out.starts_with("Emails\t"));
+    }
+
+    #[test]
+    fn capture_group_reported_when_present() {
+        // A grouped pattern outputs only the captured value (label anchored).
+        let re = Regex::new(r"(?i)order\s*#\s*(\S+)").unwrap();
+        assert_eq!(
+            Extract::matches(&re, "Order # WK32338412", true),
+            vec!["WK32338412"]
+        );
+        // A pattern with no group still reports the whole match.
+        let plain = Regex::new(r"\bJIRA-\d+\b").unwrap();
+        assert_eq!(
+            Extract::matches(&plain, "see JIRA-42", true),
+            vec!["JIRA-42"]
+        );
     }
 
     #[test]
