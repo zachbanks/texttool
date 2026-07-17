@@ -3,14 +3,19 @@
 Two [Raycast script commands](https://github.com/raycast/script-commands) that
 run [`tt`](../README.md) on the clipboard (or on text you type):
 
-| Command      | Runs             | Icon |
-|--------------|------------------|------|
-| `Clean Text` | `tt clean`       | 🧹   |
-| `Title Case` | `tt titlecase`   | 🔠   |
+| Command          | Runs                        | Icon |
+|------------------|-----------------------------|------|
+| `Clean Text`     | `tt clean`                  | 🧹   |
+| `Title Case`     | `tt titlecase`              | 🔠   |
+| `Transform Text` | any `tt` op (dropdown)      | 🧰   |
 
-Both take an **optional** text argument. With no argument they read the
-clipboard (`pbpaste`); either way the result is copied back to the clipboard
-(`pbcopy`) and shown in Raycast.
+`Transform Text` shows a **dropdown** of every operation (clean, titlecase,
+slug, squeeze, upper, lower, camel, pascal, snake, kebab, constant, mock) — pick
+one and it runs on your text.
+
+All take an **optional** text argument. With no argument they read the clipboard
+(`pbpaste`); either way the result is copied back to the clipboard (`pbcopy`) and
+shown in Raycast.
 
 ## Setup
 
