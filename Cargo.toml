@@ -1,6 +1,6 @@
 [package]
 name = "texttool"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2024"
 description = "Unified, extensible command-line toolkit for text manipulation"
 license = "MIT"
