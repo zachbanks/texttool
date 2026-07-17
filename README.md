@@ -53,6 +53,7 @@ standard output unless `-o/--output <FILE>` is given.
 | `titlecase` | `title`, `tc`          | Convert text to smart Title Case                 |
 | `slug`      |                        | Slugify text into URL/filename-friendly form     |
 | `unslug`    | `deslug`               | Split slugs/identifiers into spaced words        |
+| `humanize`  | `readable`             | Filename/slug → clean readable text              |
 | `replace`   | `sub`                  | Find and replace text (literal or regex)         |
 | `camel`     | `camelcase`            | Convert text to `camelCase`                       |
 | `pascal`    | `pascalcase`, `upper-camel` | Convert text to `PascalCase`                |
@@ -206,6 +207,20 @@ case.
 ```sh
 echo 'Thorne-magnesium-2026-07-17' | tt unslug   # Thorne magnesium 2026 07 17
 echo 'getHTTPResponse'             | tt unslug   # get HTTP Response
+```
+
+#### `humanize`
+
+Turns a filename or slug into clean, readable text: drops a trailing file
+extension, splits on every common filename delimiter (`-`, `_`, `.`, spaces) and
+`camelCase`/`ACRONYM` boundaries, then cleans whitespace and casing. Composes
+`unslug` + `clean`.
+
+```sh
+echo 'Thorne-magnesium-receipt-2026-07-17.pdf' | tt humanize
+# Thorne magnesium receipt 2026 07 17
+echo 'annual_api_report.docx' | tt humanize        # Annual API report
+echo 'getHTTPResponse.log'     | tt humanize        # Get HTTP Response
 ```
 
 #### `replace`

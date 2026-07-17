@@ -73,6 +73,7 @@ pub fn default_registry() -> Registry {
         .register(transforms::TitleCase)
         .register(transforms::Slug)
         .register(transforms::Unslug)
+        .register(transforms::Humanize)
         .register(transforms::Replace)
         .register(transforms::Camel)
         .register(transforms::Pascal)

@@ -7,6 +7,7 @@
 mod case;
 mod clean;
 mod extract;
+mod humanize;
 mod identifier;
 mod mock;
 mod replace;
@@ -19,6 +20,7 @@ mod unslug;
 pub use case::{Lower, Upper};
 pub use clean::Clean;
 pub use extract::Extract;
+pub use humanize::Humanize;
 pub use identifier::{Camel, Constant, Kebab, Pascal, Snake};
 pub use mock::Mock;
 pub use replace::Replace;
