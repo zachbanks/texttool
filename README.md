@@ -85,22 +85,25 @@ printf 'a\n\n\n\nb'           | tt squeeze --max-newlines 3  # a + 3 newlines + 
 #### `titlecase`
 
 Smart title casing: minor words (`a`, `an`, `the`, `of`, `to`, …) stay lowercase
-unless they are the first/last word or begin a subtitle after a colon;
-already-capitalized words (`NASA`, `iPhone`, or a word you capitalized on
-purpose like `In`) are respected; hyphenated compounds are capitalized
-part-by-part; leading/trailing whitespace is stripped while interior spacing and
-line breaks are kept.
+unless they are the first/last word or begin a subtitle after a colon; known
+acronyms are capitalized (`nasa` → `NASA`); already-capitalized words (`iPhone`,
+or a word you capitalized on purpose like `In`) are respected; hyphenated
+compounds are capitalized part-by-part; leading/trailing whitespace is stripped
+while interior spacing and line breaks are kept.
 
-| Flag                | Effect                                                  |
-|---------------------|---------------------------------------------------------|
+| Flag                | Effect                                                    |
+|---------------------|-----------------------------------------------------------|
 | `--no-respect-caps` | Re-case already-capitalized words instead of keeping them |
+| `--acronyms LIST`   | Extra comma-separated acronyms to capitalize              |
+| `--no-acronyms`     | Disable acronym capitalization                            |
 
 ```sh
-echo '  the quick brown fox: a tale of two-cities  ' | tt titlecase
-# The Quick Brown Fox: A Tale of Two-Cities
+echo '  the nasa api: a tale of two-cities  ' | tt titlecase
+# The NASA API: A Tale of Two-Cities
 
 echo 'the iPhone ERA' | tt titlecase                    # The iPhone ERA
 echo 'the iPhone ERA' | tt titlecase --no-respect-caps  # The Iphone Era
+echo 'the tui repl'   | tt titlecase --acronyms tui,repl # The TUI REPL
 ```
 
 #### `slug`
@@ -122,24 +125,30 @@ echo 'My Post Title' | tt slug --sep _      # my_post_title
 
 Normalizes line endings to LF, applies Unicode NFC, strips control/zero-width
 characters, removes trailing whitespace, squeezes repeated spaces (preserving
-indentation), capitalizes standalone single letters (`i` → `I`), respects
-already-capitalized words, collapses runs of blank lines, and ends with a single
+indentation), fixes casing (recognized acronyms → uppercase, standalone single
+letters → uppercase, first letter of each sentence → uppercase, while respecting
+already-capitalized words), collapses runs of blank lines, and ends with a single
 newline.
 
-| Flag                       | Effect                                          |
-|----------------------------|-------------------------------------------------|
-| `--ascii`                  | Fold smart quotes/dashes/ellipses to ASCII      |
-| `--no-squeeze`             | Keep repeated spaces                            |
-| `--no-capitalize-singles`  | Do not capitalize standalone single letters     |
-| `--no-trailing-punctuation`| Strip trailing `. , ; : ! ?` from each line     |
-| `--no-respect-caps`        | Fold shouting ALL-CAPS words back to lowercase  |
-| `--keep-blank-lines`       | Keep consecutive blank lines                    |
-| `--no-trailing-newline`    | Do not force a trailing newline                 |
+| Flag                        | Effect                                         |
+|-----------------------------|------------------------------------------------|
+| `--ascii`                   | Fold smart quotes/dashes/ellipses to ASCII     |
+| `--no-squeeze`              | Keep repeated spaces                           |
+| `--no-capitalize-singles`   | Do not capitalize standalone single letters    |
+| `--no-capitalize-sentences` | Do not capitalize the first letter of sentences|
+| `--no-trailing-punctuation` | Strip trailing `. , ; : ! ?` from each line    |
+| `--acronyms LIST`           | Extra comma-separated acronyms to capitalize   |
+| `--no-acronyms`             | Disable acronym capitalization                 |
+| `--no-respect-caps`         | Fold shouting ALL-CAPS words back to lowercase |
+| `--keep-blank-lines`        | Keep consecutive blank lines                   |
+| `--no-trailing-newline`     | Do not force a trailing newline                |
+
+Each flag's `--help` entry includes an example transformation.
 
 ```sh
-echo 'i think i am'      | tt clean                          # I think I am
-echo 'Hello world.'      | tt clean --no-trailing-punctuation # Hello world
-echo 'THIS is LOUD'      | tt clean --no-respect-caps         # this is loud
+echo 'i visit nasa. i learn'  | tt clean                          # I visit NASA. I learn
+echo 'Hello world.'           | tt clean --no-trailing-punctuation # Hello world
+echo 'THIS is LOUD'           | tt clean --no-respect-caps         # This is loud
 ```
 
 #### Identifier cases (`camel`, `pascal`, `snake`, `kebab`, `constant`)

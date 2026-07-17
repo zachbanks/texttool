@@ -1,7 +1,6 @@
-//! Shared word-splitting used by the identifier-style case transforms
-//! (`camel`, `pascal`, `snake`, `kebab`, `constant`).
+//! Shared word-splitting and casing helpers used across transforms.
 //!
-//! Splitting a phrase into its component words is the hard part all of those
+//! Splitting a phrase into its component words is the hard part several
 //! operations share, so it lives here once. The splitter understands three
 //! kinds of boundary:
 //!
@@ -10,6 +9,12 @@
 //!   (`helloWorld` → `hello`, `World`);
 //! - **acronym ends** — an uppercase run whose last letter starts a new
 //!   lowercase word (`HTMLParser` → `HTML`, `Parser`).
+//!
+//! It also owns the shared [`AcronymSet`] (known-acronym recognition — the only
+//! reliable way to capitalize acronyms, since length alone can't tell `API`
+//! from `cat`) and [`capitalize_sentences`] for sentence-start casing.
+
+use std::collections::HashSet;
 
 /// Split a string into its component words.
 ///
@@ -149,6 +154,76 @@ pub fn is_all_caps(word: &str) -> bool {
         && !c.chars().any(char::is_lowercase)
 }
 
+/// Built-in acronyms that should be fully capitalized when recognized.
+///
+/// Deliberately excludes short strings that collide with common English words
+/// (`us`, `it`, `id`, `am`, …) to avoid uppercasing ordinary text. Extend or
+/// replace at the CLI with `--acronyms`/`--no-acronyms`.
+pub const DEFAULT_ACRONYMS: &[&str] = &[
+    "ai", "api", "url", "uri", "html", "css", "js", "json", "xml", "yaml", "http", "https", "ftp",
+    "ssh", "sql", "cpu", "gpu", "ram", "rom", "ssd", "hdd", "usb", "pdf", "png", "jpg", "jpeg",
+    "gif", "svg", "csv", "tsv", "faq", "ceo", "cfo", "coo", "cto", "cio", "phd", "dna", "rna",
+    "hiv", "usa", "uk", "eu", "un", "nasa", "fbi", "cia", "nsa", "atm", "gps", "sos", "diy",
+    "nato", "utc", "gmt", "ascii", "utf", "wifi", "led", "lcd", "vip", "mvp", "suv", "io", "os",
+    "ui", "ux", "pc", "tv", "gui", "cli", "sdk", "ide", "orm", "jwt", "tcp", "udp", "dns", "ssl",
+    "tls",
+];
+
+/// A case-insensitive set of words to fully capitalize as acronyms.
+pub struct AcronymSet {
+    words: HashSet<String>,
+}
+
+impl AcronymSet {
+    /// Build a set from the built-in defaults (when `use_defaults`) plus any
+    /// extra comma/space-separated entries.
+    pub fn new(use_defaults: bool, extra: &[String]) -> Self {
+        let mut words = HashSet::new();
+        if use_defaults {
+            words.extend(DEFAULT_ACRONYMS.iter().map(|s| s.to_string()));
+        }
+        for item in extra {
+            for piece in item.split([',', ' ']) {
+                let piece = piece.trim().to_lowercase();
+                if !piece.is_empty() {
+                    words.insert(piece);
+                }
+            }
+        }
+        Self { words }
+    }
+
+    /// True if the word's alphanumeric core is a recognized acronym.
+    pub fn matches(&self, word: &str) -> bool {
+        let c = core(word).to_lowercase();
+        !c.is_empty() && self.words.contains(&c)
+    }
+}
+
+/// Capitalize the first letter of each sentence in a line.
+///
+/// A sentence starts at the beginning of the line and after any `.`, `!`, or
+/// `?`. Only lowercase letters are raised — existing capitals are left intact —
+/// and non-letters (digits, quotes, brackets) never trigger capitalization.
+pub fn capitalize_sentences(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut expect_capital = true;
+    for c in line.chars() {
+        if expect_capital && c.is_alphabetic() {
+            out.extend(c.to_uppercase());
+            expect_capital = false;
+        } else {
+            out.push(c);
+            if c.is_alphanumeric() {
+                expect_capital = false;
+            } else if matches!(c, '.' | '!' | '?') {
+                expect_capital = true;
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,5 +303,30 @@ mod tests {
         assert!(is_all_caps("NASA"));
         assert!(!is_all_caps("Nasa"));
         assert!(!is_all_caps("I")); // single letter is not "shouting"
+    }
+
+    #[test]
+    fn acronym_set_defaults_and_extra() {
+        let set = AcronymSet::new(true, &[]);
+        assert!(set.matches("api"));
+        assert!(set.matches("(URL)")); // punctuation ignored via core()
+        assert!(!set.matches("cat"));
+
+        let custom = AcronymSet::new(true, &["foo, bar".to_string()]);
+        assert!(custom.matches("foo"));
+        assert!(custom.matches("bar"));
+
+        let no_defaults = AcronymSet::new(false, &["baz".to_string()]);
+        assert!(no_defaults.matches("baz"));
+        assert!(!no_defaults.matches("api"));
+    }
+
+    #[test]
+    fn sentence_capitalization() {
+        assert_eq!(capitalize_sentences("hello. world"), "Hello. World");
+        assert_eq!(capitalize_sentences("what? no! ok"), "What? No! Ok");
+        // Existing capitals kept; digits do not trigger capitalization.
+        assert_eq!(capitalize_sentences("3 cats. iOS wins"), "3 cats. IOS wins");
+        assert_eq!(capitalize_sentences("(hi) there"), "(Hi) there");
     }
 }

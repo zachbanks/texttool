@@ -6,17 +6,22 @@
 //! 2. Apply Unicode NFC normalization so equivalent forms compare equal.
 //! 3. Strip control characters (except tab/newline) and zero-width characters.
 //! 4. Remove trailing whitespace from every line and squeeze runs of spaces.
-//! 5. Capitalize standalone single letters (`i` -> `I`), respecting words that
-//!    are already capitalized.
+//! 5. Fix casing (respecting already-capitalized words): capitalize recognized
+//!    acronyms (`api` -> `API`), standalone single letters (`i` -> `I`), and the
+//!    first letter of each sentence.
 //! 6. Collapse three-or-more consecutive newlines down to a single blank line.
 //! 7. Trim leading/trailing blank lines and end with exactly one newline.
 //!
-//! Every potentially-destructive step has a flag to turn it off; `--ascii` folds
-//! "smart" punctuation to plain ASCII, `--no-trailing-punctuation` strips
-//! sentence punctuation from line ends, and `--no-respect-caps` lets clean fold
-//! shouting ALL-CAPS words back to lowercase.
+//! Every step has a flag to turn it off; `--ascii` folds "smart" punctuation to
+//! plain ASCII, `--no-trailing-punctuation` strips sentence punctuation from
+//! line ends, `--acronyms`/`--no-acronyms` tune acronym handling, and
+//! `--no-respect-caps` lets clean fold shouting ALL-CAPS words back to
+//! lowercase.
 
-use crate::casing::{capitalize_first_alpha, is_all_caps, is_single_letter, segment};
+use crate::casing::{
+    AcronymSet, capitalize_first_alpha, capitalize_sentences, has_uppercase, is_all_caps,
+    is_single_letter, segment,
+};
 use crate::transform::Transform;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use unicode_normalization::UnicodeNormalization;
@@ -102,9 +107,15 @@ impl Clean {
         out
     }
 
-    /// Apply per-word case fixes: fold shouting ALL-CAPS when not respecting
-    /// caps, and capitalize standalone single letters. Spacing is preserved.
-    fn apply_word_casing(line: &str, respect_caps: bool, capitalize_singles: bool) -> String {
+    /// Apply per-word case fixes: respect already-capitalized words, fold
+    /// shouting ALL-CAPS when not respecting caps, uppercase recognized
+    /// acronyms, and capitalize standalone single letters. Spacing is preserved.
+    fn apply_word_casing(
+        line: &str,
+        respect_caps: bool,
+        capitalize_singles: bool,
+        acronyms: &AcronymSet,
+    ) -> String {
         segment(line)
             .into_iter()
             .map(|seg| {
@@ -112,10 +123,16 @@ impl Clean {
                     return seg.text;
                 }
                 let mut word = seg.text;
+                // Leave words the writer already capitalized alone.
+                if respect_caps && has_uppercase(&word) {
+                    return word;
+                }
                 if !respect_caps && is_all_caps(&word) {
                     word = word.to_lowercase();
                 }
-                if capitalize_singles && is_single_letter(&word) {
+                if acronyms.matches(&word) {
+                    word = word.to_uppercase();
+                } else if capitalize_singles && is_single_letter(&word) {
                     word = capitalize_first_alpha(&word);
                 }
                 word
@@ -172,43 +189,63 @@ impl Transform for Clean {
         cmd.arg(
             Arg::new("ascii")
                 .long("ascii")
-                .help("Fold smart quotes, dashes, and ellipses to plain ASCII")
+                .help("Fold smart punctuation to ASCII [e.g. \"“hi” — it’s\" -> '\"hi\" - it's']")
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("no-squeeze")
                 .long("no-squeeze")
-                .help("Keep repeated spaces instead of collapsing them")
+                .help("Keep repeated spaces [e.g. \"a    b\" -> \"a    b\"]")
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("no-capitalize-singles")
                 .long("no-capitalize-singles")
-                .help("Do not capitalize standalone single letters")
+                .help("Do not capitalize standalone single letters [e.g. \"say i\" -> \"say i\"]")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-capitalize-sentences")
+                .long("no-capitalize-sentences")
+                .help("Do not capitalize the first letter of sentences [e.g. \"hi. bye\" -> \"hi. bye\"]")
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("no-trailing-punctuation")
                 .long("no-trailing-punctuation")
-                .help("Strip trailing sentence punctuation (. , ; : ! ?) from lines")
+                .help("Strip trailing sentence punctuation [e.g. \"Hi there.\" -> \"Hi there\"]")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("acronyms")
+                .long("acronyms")
+                .value_name("LIST")
+                .help("Extra acronyms to capitalize [e.g. --acronyms tui: \"tui\" -> \"TUI\"]")
+                .value_delimiter(',')
+                .action(ArgAction::Append),
+        )
+        .arg(
+            Arg::new("no-acronyms")
+                .long("no-acronyms")
+                .help("Disable acronym capitalization [e.g. \"api\" stays \"api\"]")
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("no-respect-caps")
                 .long("no-respect-caps")
-                .help("Fold shouting ALL-CAPS words back to lowercase")
+                .help("Fold shouting ALL-CAPS words to lowercase [e.g. \"LOUD\" -> \"loud\"]")
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("keep-blank-lines")
                 .long("keep-blank-lines")
-                .help("Keep consecutive blank lines instead of collapsing them")
+                .help("Keep consecutive blank lines [e.g. \"a\\n\\n\\nb\" keeps both blanks]")
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("no-trailing-newline")
                 .long("no-trailing-newline")
-                .help("Do not force a single trailing newline")
+                .help("Do not force a trailing newline [e.g. \"hi\\n\" -> \"hi\"]")
                 .action(ArgAction::SetTrue),
         )
     }
@@ -218,8 +255,10 @@ impl Transform for Clean {
         let collapse = !args.get_flag("keep-blank-lines");
         let trailing_newline = !args.get_flag("no-trailing-newline");
         let capitalize_singles = !args.get_flag("no-capitalize-singles");
+        let cap_sentences = !args.get_flag("no-capitalize-sentences");
         let respect_caps = !args.get_flag("no-respect-caps");
         let strip_punct = args.get_flag("no-trailing-punctuation");
+        let acronyms = acronyms_from_args(args);
 
         let mut text = Self::normalize_newlines(input);
         if args.get_flag("ascii") {
@@ -232,7 +271,10 @@ impl Transform for Clean {
             .split('\n')
             .map(|line| {
                 let mut out = Self::tidy_line(line, squeeze);
-                out = Self::apply_word_casing(&out, respect_caps, capitalize_singles);
+                out = Self::apply_word_casing(&out, respect_caps, capitalize_singles, &acronyms);
+                if cap_sentences {
+                    out = capitalize_sentences(&out);
+                }
                 if strip_punct {
                     out = Self::strip_trailing_punct(&out);
                 }
@@ -259,6 +301,15 @@ impl Transform for Clean {
     }
 }
 
+/// Build the acronym set from the shared `--acronyms` / `--no-acronyms` flags.
+fn acronyms_from_args(args: &ArgMatches) -> AcronymSet {
+    let extra: Vec<String> = args
+        .get_many::<String>("acronyms")
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default();
+    AcronymSet::new(!args.get_flag("no-acronyms"), &extra)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -281,7 +332,7 @@ mod tests {
     fn strips_trailing_whitespace_and_squeezes_spaces() {
         assert_eq!(
             Clean.apply("hello    world   \n", &args(&[])).unwrap(),
-            "hello world\n"
+            "Hello world\n"
         );
     }
 
@@ -289,7 +340,7 @@ mod tests {
     fn no_squeeze_keeps_runs() {
         assert_eq!(
             Clean.apply("aa    bb", &args(&["--no-squeeze"])).unwrap(),
-            "aa    bb\n"
+            "Aa    bb\n"
         );
     }
 
@@ -303,11 +354,59 @@ mod tests {
 
     #[test]
     fn no_capitalize_singles_flag() {
+        // Sentence casing still capitalizes the line start; the lone mid-line
+        // "i" stays lowercase because single-letter casing is disabled.
         assert_eq!(
             Clean
-                .apply("i am", &args(&["--no-capitalize-singles"]))
+                .apply("say i now", &args(&["--no-capitalize-singles"]))
                 .unwrap(),
-            "i am\n"
+            "Say i now\n"
+        );
+    }
+
+    #[test]
+    fn capitalizes_first_letter_of_sentences() {
+        assert_eq!(
+            Clean.apply("hello world. another one", &args(&[])).unwrap(),
+            "Hello world. Another one\n"
+        );
+    }
+
+    #[test]
+    fn no_capitalize_sentences_flag() {
+        assert_eq!(
+            Clean
+                .apply("hello. world", &args(&["--no-capitalize-sentences"]))
+                .unwrap(),
+            "hello. world\n"
+        );
+    }
+
+    #[test]
+    fn capitalizes_known_acronyms() {
+        assert_eq!(
+            Clean.apply("visit nasa and fbi", &args(&[])).unwrap(),
+            "Visit NASA and FBI\n"
+        );
+    }
+
+    #[test]
+    fn no_acronyms_flag_disables_them() {
+        assert_eq!(
+            Clean
+                .apply("visit nasa", &args(&["--no-acronyms"]))
+                .unwrap(),
+            "Visit nasa\n"
+        );
+    }
+
+    #[test]
+    fn custom_acronyms_flag() {
+        assert_eq!(
+            Clean
+                .apply("use the tui", &args(&["--acronyms", "tui"]))
+                .unwrap(),
+            "Use the TUI\n"
         );
     }
 
@@ -322,11 +421,12 @@ mod tests {
 
     #[test]
     fn no_respect_caps_folds_shouting() {
+        // De-shouted, then the sentence start is re-capitalized for grammar.
         assert_eq!(
             Clean
                 .apply("THIS is LOUD", &args(&["--no-respect-caps"]))
                 .unwrap(),
-            "this is loud\n"
+            "This is loud\n"
         );
     }
 
@@ -350,7 +450,7 @@ mod tests {
     fn collapses_blank_line_runs() {
         assert_eq!(
             Clean.apply("go\n\n\n\ngo\n", &args(&[])).unwrap(),
-            "go\n\ngo\n"
+            "Go\n\nGo\n"
         );
     }
 
@@ -360,27 +460,27 @@ mod tests {
             Clean
                 .apply("go\n\n\n\ngo", &args(&["--keep-blank-lines"]))
                 .unwrap(),
-            "go\n\n\n\ngo\n"
+            "Go\n\n\n\nGo\n"
         );
     }
 
     #[test]
     fn trims_surrounding_blank_lines_but_keeps_indentation() {
-        assert_eq!(Clean.apply("\n\n  hi  \n\n", &args(&[])).unwrap(), "  hi\n");
+        assert_eq!(Clean.apply("\n\n  hi  \n\n", &args(&[])).unwrap(), "  Hi\n");
     }
 
     #[test]
     fn squeeze_preserves_leading_indentation() {
         assert_eq!(
             Clean.apply("    go    now", &args(&[])).unwrap(),
-            "    go now\n"
+            "    Go now\n"
         );
     }
 
     #[test]
     fn removes_zero_width_and_control_chars() {
         let input = "a\u{200B}b\u{0007}c";
-        assert_eq!(Clean.apply(input, &args(&[])).unwrap(), "abc\n");
+        assert_eq!(Clean.apply(input, &args(&[])).unwrap(), "Abc\n");
     }
 
     #[test]
@@ -388,7 +488,7 @@ mod tests {
         let input = "\u{201C}quote\u{201D} \u{2014} it\u{2019}s fine\u{2026}";
         assert_eq!(
             Clean.apply(input, &args(&["--ascii"])).unwrap(),
-            "\"quote\" - it's fine...\n"
+            "\"Quote\" - it's fine...\n"
         );
     }
 
@@ -398,7 +498,7 @@ mod tests {
             Clean
                 .apply("go\u{00A0}\u{00A0}now", &args(&["--ascii"]))
                 .unwrap(),
-            "go now\n"
+            "Go now\n"
         );
     }
 
@@ -413,7 +513,7 @@ mod tests {
             Clean
                 .apply("hi\n", &args(&["--no-trailing-newline"]))
                 .unwrap(),
-            "hi"
+            "Hi"
         );
     }
 }

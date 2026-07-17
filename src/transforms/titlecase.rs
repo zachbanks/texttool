@@ -13,7 +13,7 @@
 //! - Hyphenated compounds capitalize each part (`Two-Cities`).
 //! - Leading and trailing whitespace is stripped; interior spacing is kept.
 
-use crate::casing::{capitalize_first_alpha, core, has_uppercase};
+use crate::casing::{AcronymSet, capitalize_first_alpha, core, has_uppercase};
 use crate::transform::Transform;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
@@ -41,6 +41,7 @@ fn cap_word(
     is_last: bool,
     after_colon: bool,
     respect_caps: bool,
+    acronyms: &AcronymSet,
 ) -> String {
     if word.is_empty() {
         return String::new();
@@ -48,6 +49,10 @@ fn cap_word(
     // Respect words the writer already capitalized (acronyms, brands, names).
     if respect_caps && has_uppercase(word) {
         return word.to_string();
+    }
+    // Recognized acronyms are fully capitalized regardless of position.
+    if acronyms.matches(word) {
+        return word.to_uppercase();
     }
     let lower = word.to_lowercase();
     let is_minor = SMALL_WORDS.contains(&core(&lower));
@@ -58,7 +63,7 @@ fn cap_word(
 }
 
 /// Title-case one line: strip its edges, then case each word in place.
-fn titlecase_line(line: &str, respect_caps: bool) -> String {
+fn titlecase_line(line: &str, respect_caps: bool, acronyms: &AcronymSet) -> String {
     let mut segments = crate::casing::segment(line.trim());
     let word_indices: Vec<usize> = segments
         .iter()
@@ -83,12 +88,22 @@ fn titlecase_line(line: &str, respect_caps: bool) -> String {
             is_last,
             prev_word_ended_colon,
             respect_caps,
+            acronyms,
         );
         prev_word_ended_colon = segment.text.ends_with(':');
         segment.text = cased;
     }
 
     segments.into_iter().map(|s| s.text).collect()
+}
+
+/// Build the acronym set from the shared `--acronyms` / `--no-acronyms` flags.
+fn acronyms_from_args(args: &ArgMatches) -> AcronymSet {
+    let extra: Vec<String> = args
+        .get_many::<String>("acronyms")
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default();
+    AcronymSet::new(!args.get_flag("no-acronyms"), &extra)
 }
 
 impl Transform for TitleCase {
@@ -120,16 +135,31 @@ impl Transform for TitleCase {
         cmd.arg(
             Arg::new("no-respect-caps")
                 .long("no-respect-caps")
-                .help("Re-case already-capitalized words instead of respecting them")
+                .help("Re-case already-capitalized words [e.g. \"iPhone\" -> \"Iphone\"]")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("acronyms")
+                .long("acronyms")
+                .value_name("LIST")
+                .help("Extra acronyms to fully capitalize [e.g. --acronyms tui,repl: \"tui\" -> \"TUI\"]")
+                .value_delimiter(',')
+                .action(ArgAction::Append),
+        )
+        .arg(
+            Arg::new("no-acronyms")
+                .long("no-acronyms")
+                .help("Disable acronym capitalization [e.g. \"api\" -> \"Api\"]")
                 .action(ArgAction::SetTrue),
         )
     }
 
     fn apply(&self, input: &str, args: &ArgMatches) -> Result<String, String> {
         let respect_caps = !args.get_flag("no-respect-caps");
+        let acronyms = acronyms_from_args(args);
         Ok(input
             .split('\n')
-            .map(|line| titlecase_line(line, respect_caps))
+            .map(|line| titlecase_line(line, respect_caps, &acronyms))
             .collect::<Vec<_>>()
             .join("\n"))
     }
@@ -184,6 +214,31 @@ mod tests {
     fn respects_deliberately_capitalized_words() {
         // A capitalized minor word ("In") is kept rather than lowercased.
         assert_eq!(tc("the Cat In the Hat"), "The Cat In the Hat");
+    }
+
+    #[test]
+    fn capitalizes_known_acronyms() {
+        assert_eq!(tc("the nasa api docs"), "The NASA API Docs");
+    }
+
+    #[test]
+    fn no_acronyms_flag_disables_them() {
+        assert_eq!(
+            TitleCase
+                .apply("the api docs", &args(&["--no-acronyms"]))
+                .unwrap(),
+            "The Api Docs"
+        );
+    }
+
+    #[test]
+    fn custom_acronyms_flag() {
+        assert_eq!(
+            TitleCase
+                .apply("the tui repl", &args(&["--acronyms", "tui,repl"]))
+                .unwrap(),
+            "The TUI REPL"
+        );
     }
 
     #[test]

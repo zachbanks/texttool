@@ -27,7 +27,7 @@ impl Transform for Mock {
         cmd.arg(
             Arg::new("start-upper")
                 .long("start-upper")
-                .help("Start with an uppercase letter instead of lowercase")
+                .help("Start with an uppercase letter [e.g. \"abc\" -> \"AbC\"]")
                 .action(ArgAction::SetTrue),
         )
     }

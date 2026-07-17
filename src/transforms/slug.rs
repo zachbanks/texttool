@@ -62,14 +62,14 @@ impl Transform for Slug {
             Arg::new("sep")
                 .short('s')
                 .long("sep")
-                .help("Separator to join words with")
+                .help("Separator to join words with [e.g. --sep _: \"a b\" -> \"a_b\"]")
                 .value_name("SEP")
                 .default_value("-"),
         )
         .arg(
             Arg::new("unicode")
                 .long("unicode")
-                .help("Keep Unicode alphanumerics instead of ASCII only")
+                .help("Keep Unicode alphanumerics [e.g. \"Café\" -> \"café\" not \"caf\"]")
                 .action(ArgAction::SetTrue),
         )
     }

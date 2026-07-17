@@ -93,14 +93,16 @@ impl Transform for Squeeze {
         cmd.arg(
             Arg::new("keep-newlines")
                 .long("keep-newlines")
-                .help("Preserve line breaks; only collapse horizontal whitespace")
+                .help(
+                    "Keep line breaks, collapse horizontal space [e.g. \"a\\n\\nb\" -> \"a\\nb\"]",
+                )
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("max-newlines")
                 .long("max-newlines")
                 .value_name("N")
-                .help("Keep at most N consecutive newlines, deleting the rest")
+                .help("Keep at most N consecutive newlines [e.g. --max-newlines 2: 5 -> 2]")
                 .num_args(0..=1)
                 .default_missing_value("2")
                 .value_parser(clap::value_parser!(u64).range(1..))
@@ -109,14 +111,14 @@ impl Transform for Squeeze {
         .arg(
             Arg::new("remove-all")
                 .long("remove-all")
-                .help("Remove all whitespace instead of collapsing to spaces")
+                .help("Remove all whitespace [e.g. \"a b\\tc\" -> \"abc\"]")
                 .conflicts_with_all(["keep-newlines", "max-newlines"])
                 .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("no-trailing-newline")
                 .long("no-trailing-newline")
-                .help("Do not append a trailing newline")
+                .help("Do not append a trailing newline [e.g. \"a b\\n\" -> \"a b\"]")
                 .action(ArgAction::SetTrue),
         )
     }
