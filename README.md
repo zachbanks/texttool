@@ -52,6 +52,8 @@ standard output unless `-o/--output <FILE>` is given.
 | `extract`   | `infoparse`            | Pull phones/emails/dates/… into Markdown sections|
 | `titlecase` | `title`, `tc`          | Convert text to smart Title Case                 |
 | `slug`      |                        | Slugify text into URL/filename-friendly form     |
+| `unslug`    | `deslug`               | Split slugs/identifiers into spaced words        |
+| `replace`   | `sub`                  | Find and replace text (literal or regex)         |
 | `camel`     | `camelcase`            | Convert text to `camelCase`                       |
 | `pascal`    | `pascalcase`, `upper-camel` | Convert text to `PascalCase`                |
 | `snake`     | `snakecase`            | Convert text to `snake_case`                      |
@@ -193,6 +195,34 @@ and trims leading/trailing separators.
 ```sh
 echo 'Hello, World!' | tt slug              # hello-world
 echo 'My Post Title' | tt slug --sep _      # my_post_title
+```
+
+#### `unslug`
+
+The inverse of `slug`: splits on separators (`-`, `_`, `.`, …) and
+`camelCase`/`ACRONYM` boundaries and joins the words with spaces, preserving
+case.
+
+```sh
+echo 'Thorne-magnesium-2026-07-17' | tt unslug   # Thorne magnesium 2026 07 17
+echo 'getHTTPResponse'             | tt unslug   # get HTTP Response
+```
+
+#### `replace`
+
+General find-and-replace. `FROM` is literal by default, or a regex with
+`--regex` (then `TO` may use `$1` group references). Pass an empty `TO` (`''`) to
+delete. Reads file operands or stdin.
+
+| Flag                | Effect                                    |
+|---------------------|-------------------------------------------|
+| `-r`, `--regex`     | Treat `FROM` as a regular expression      |
+| `-i`, `--ignore-case`| Match case-insensitively                 |
+
+```sh
+echo 'a-b-c'      | tt replace - ' '                       # a b c
+echo 'a-b_c.d'    | tt replace -r '[-_.]+' ' '             # a b c d
+echo '2026-07-17' | tt replace -r '(\d+)-(\d+)-(\d+)' '$3/$2/$1'  # 17/07/2026
 ```
 
 #### `clean`

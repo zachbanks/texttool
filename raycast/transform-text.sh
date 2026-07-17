@@ -8,7 +8,7 @@
 # Optional parameters:
 # @raycast.icon 🧰
 # @raycast.packageName Text Tools
-# @raycast.argument1 { "type": "dropdown", "placeholder": "Operation", "data": [{"title": "Clean", "value": "clean"}, {"title": "Title Case", "value": "titlecase"}, {"title": "Strip Edges", "value": "strip"}, {"title": "Extract Info", "value": "extract"}, {"title": "Slug", "value": "slug"}, {"title": "Squeeze", "value": "squeeze"}, {"title": "UPPERCASE", "value": "upper"}, {"title": "lowercase", "value": "lower"}, {"title": "camelCase", "value": "camel"}, {"title": "PascalCase", "value": "pascal"}, {"title": "snake_case", "value": "snake"}, {"title": "kebab-case", "value": "kebab"}, {"title": "CONSTANT_CASE", "value": "constant"}, {"title": "mOcKiNg", "value": "mock"}] }
+# @raycast.argument1 { "type": "dropdown", "placeholder": "Operation", "data": [{"title": "Clean", "value": "clean"}, {"title": "Title Case", "value": "titlecase"}, {"title": "Strip Edges", "value": "strip"}, {"title": "Extract Info", "value": "extract"}, {"title": "Slug", "value": "slug"}, {"title": "Unslug", "value": "unslug"}, {"title": "Squeeze", "value": "squeeze"}, {"title": "UPPERCASE", "value": "upper"}, {"title": "lowercase", "value": "lower"}, {"title": "camelCase", "value": "camel"}, {"title": "PascalCase", "value": "pascal"}, {"title": "snake_case", "value": "snake"}, {"title": "kebab-case", "value": "kebab"}, {"title": "CONSTANT_CASE", "value": "constant"}, {"title": "mOcKiNg", "value": "mock"}] }
 # @raycast.argument2 { "type": "text", "placeholder": "text (optional — uses clipboard)", "optional": true }
 
 # Documentation:
