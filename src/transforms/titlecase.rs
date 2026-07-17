@@ -6,13 +6,16 @@
 //! - Minor words (articles, short conjunctions/prepositions) stay lowercase…
 //! - …unless they are the first or last word of a line, or start a subtitle
 //!   (the word right after a colon), which are always capitalized.
-//! - Words that already contain "internal" capitals are left untouched, so
-//!   acronyms and brand names survive (`NASA`, `iPhone`, `McKinsey`).
+//! - Already-capitalized words are respected by default, so acronyms, brand
+//!   names, and words the writer deliberately capitalized survive (`NASA`,
+//!   `iPhone`, `In`). `--no-respect-caps` turns that off and applies the rules
+//!   strictly.
 //! - Hyphenated compounds capitalize each part (`Two-Cities`).
-//! - Original spacing and line breaks are preserved exactly.
+//! - Leading and trailing whitespace is stripped; interior spacing is kept.
 
+use crate::casing::{capitalize_first_alpha, core, has_uppercase};
 use crate::transform::Transform;
-use clap::ArgMatches;
+use clap::{Arg, ArgAction, ArgMatches, Command};
 
 /// Words kept lowercase unless positional rules force capitalization.
 const SMALL_WORDS: &[&str] = &[
@@ -23,74 +26,6 @@ const SMALL_WORDS: &[&str] = &[
 /// Smart title-case conversion.
 pub struct TitleCase;
 
-/// A run of text that is either all whitespace or all non-whitespace.
-struct Token {
-    text: String,
-    is_word: bool,
-}
-
-/// Split a line into alternating word / whitespace tokens, preserving both so
-/// the original spacing can be reconstructed exactly.
-fn tokenize(line: &str) -> Vec<Token> {
-    let mut tokens = Vec::new();
-    let mut current = String::new();
-    let mut current_is_word: Option<bool> = None;
-
-    for c in line.chars() {
-        let is_word = !c.is_whitespace();
-        match current_is_word {
-            Some(prev) if prev == is_word => current.push(c),
-            Some(prev) => {
-                tokens.push(Token {
-                    text: std::mem::take(&mut current),
-                    is_word: prev,
-                });
-                current.push(c);
-                current_is_word = Some(is_word);
-            }
-            None => {
-                current.push(c);
-                current_is_word = Some(is_word);
-            }
-        }
-    }
-    if let Some(is_word) = current_is_word {
-        tokens.push(Token {
-            text: current,
-            is_word,
-        });
-    }
-    tokens
-}
-
-/// True if the word carries capitals beyond the first character, which marks it
-/// as an intentional acronym or brand name to leave alone.
-fn has_internal_caps(word: &str) -> bool {
-    word.chars().skip(1).any(|c| c.is_uppercase())
-}
-
-/// The alphanumeric core of a word, ignoring surrounding punctuation, used for
-/// minor-word lookup (e.g. `"of,"` -> `"of"`).
-fn core(word: &str) -> String {
-    word.trim_matches(|c: char| !c.is_alphanumeric())
-        .to_string()
-}
-
-/// Uppercase the first alphabetic character, leaving the rest as-is.
-fn capitalize_first_alpha(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut done = false;
-    for c in s.chars() {
-        if !done && c.is_alphabetic() {
-            result.extend(c.to_uppercase());
-            done = true;
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}
-
 /// Capitalize each hyphen-separated part of a word.
 fn capitalize_hyphenated(word: &str) -> String {
     word.split('-')
@@ -100,28 +35,35 @@ fn capitalize_hyphenated(word: &str) -> String {
 }
 
 /// Apply the casing rules to a single word given its position in the line.
-fn cap_word(word: &str, is_first: bool, is_last: bool, after_colon: bool) -> String {
+fn cap_word(
+    word: &str,
+    is_first: bool,
+    is_last: bool,
+    after_colon: bool,
+    respect_caps: bool,
+) -> String {
     if word.is_empty() {
         return String::new();
     }
-    if has_internal_caps(word) {
+    // Respect words the writer already capitalized (acronyms, brands, names).
+    if respect_caps && has_uppercase(word) {
         return word.to_string();
     }
     let lower = word.to_lowercase();
-    let is_minor = SMALL_WORDS.contains(&core(&lower).as_str());
+    let is_minor = SMALL_WORDS.contains(&core(&lower));
     if is_minor && !is_first && !is_last && !after_colon {
         return lower;
     }
     capitalize_hyphenated(&lower)
 }
 
-/// Title-case one line, preserving its internal spacing.
-fn titlecase_line(line: &str) -> String {
-    let mut tokens = tokenize(line);
-    let word_indices: Vec<usize> = tokens
+/// Title-case one line: strip its edges, then case each word in place.
+fn titlecase_line(line: &str, respect_caps: bool) -> String {
+    let mut segments = crate::casing::segment(line.trim());
+    let word_indices: Vec<usize> = segments
         .iter()
         .enumerate()
-        .filter(|(_, t)| t.is_word)
+        .filter(|(_, s)| s.is_word)
         .map(|(i, _)| i)
         .collect();
 
@@ -129,18 +71,24 @@ fn titlecase_line(line: &str) -> String {
     let last = word_indices.last().copied();
 
     let mut prev_word_ended_colon = false;
-    for (i, token) in tokens.iter_mut().enumerate() {
-        if !token.is_word {
+    for (i, segment) in segments.iter_mut().enumerate() {
+        if !segment.is_word {
             continue;
         }
         let is_first = Some(i) == first;
         let is_last = Some(i) == last;
-        let cased = cap_word(&token.text, is_first, is_last, prev_word_ended_colon);
-        prev_word_ended_colon = token.text.ends_with(':');
-        token.text = cased;
+        let cased = cap_word(
+            &segment.text,
+            is_first,
+            is_last,
+            prev_word_ended_colon,
+            respect_caps,
+        );
+        prev_word_ended_colon = segment.text.ends_with(':');
+        segment.text = cased;
     }
 
-    tokens.into_iter().map(|t| t.text).collect()
+    segments.into_iter().map(|s| s.text).collect()
 }
 
 impl Transform for TitleCase {
@@ -156,10 +104,11 @@ impl Transform for TitleCase {
         Some(
             "Convert text to title case using common style rules: minor words \
              (a, an, the, of, to, …) stay lowercase unless they are the first or \
-             last word or begin a subtitle after a colon; acronyms and brand \
-             names with internal capitals (NASA, iPhone) are preserved; \
-             hyphenated compounds are capitalized part-by-part; and existing \
-             spacing and line breaks are kept intact.",
+             last word or begin a subtitle after a colon; already-capitalized \
+             words (NASA, iPhone, In) are respected unless --no-respect-caps is \
+             given; hyphenated compounds are capitalized part-by-part; leading \
+             and trailing whitespace is stripped while interior spacing and line \
+             breaks are kept.",
         )
     }
 
@@ -167,10 +116,20 @@ impl Transform for TitleCase {
         &["title", "tc"]
     }
 
-    fn apply(&self, input: &str, _args: &ArgMatches) -> Result<String, String> {
+    fn augment(&self, cmd: Command) -> Command {
+        cmd.arg(
+            Arg::new("no-respect-caps")
+                .long("no-respect-caps")
+                .help("Re-case already-capitalized words instead of respecting them")
+                .action(ArgAction::SetTrue),
+        )
+    }
+
+    fn apply(&self, input: &str, args: &ArgMatches) -> Result<String, String> {
+        let respect_caps = !args.get_flag("no-respect-caps");
         Ok(input
             .split('\n')
-            .map(titlecase_line)
+            .map(|line| titlecase_line(line, respect_caps))
             .collect::<Vec<_>>()
             .join("\n"))
     }
@@ -179,14 +138,16 @@ impl Transform for TitleCase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Command;
 
-    fn no_args() -> ArgMatches {
-        Command::new("t").get_matches_from(["t"])
+    fn args(extra: &[&str]) -> ArgMatches {
+        let cmd = TitleCase.augment(Command::new("titlecase"));
+        let mut argv = vec!["titlecase"];
+        argv.extend_from_slice(extra);
+        cmd.get_matches_from(argv)
     }
 
     fn tc(input: &str) -> String {
-        TitleCase.apply(input, &no_args()).unwrap()
+        TitleCase.apply(input, &args(&[])).unwrap()
     }
 
     #[test]
@@ -201,7 +162,6 @@ mod tests {
 
     #[test]
     fn first_and_last_words_always_capitalized() {
-        // Leading and trailing minor words are still capitalized.
         assert_eq!(tc("the end of the war"), "The End of the War");
         assert_eq!(tc("a room with a view"), "A Room With a View");
     }
@@ -215,9 +175,25 @@ mod tests {
     }
 
     #[test]
-    fn preserves_acronyms_and_brands() {
+    fn respects_acronyms_and_brands_by_default() {
         assert_eq!(tc("the FBI files"), "The FBI Files");
         assert_eq!(tc("the iPhone era"), "The iPhone Era");
+    }
+
+    #[test]
+    fn respects_deliberately_capitalized_words() {
+        // A capitalized minor word ("In") is kept rather than lowercased.
+        assert_eq!(tc("the Cat In the Hat"), "The Cat In the Hat");
+    }
+
+    #[test]
+    fn no_respect_caps_recases_everything() {
+        assert_eq!(
+            TitleCase
+                .apply("the iPhone ERA", &args(&["--no-respect-caps"]))
+                .unwrap(),
+            "The Iphone Era"
+        );
     }
 
     #[test]
@@ -227,13 +203,19 @@ mod tests {
     }
 
     #[test]
-    fn preserves_internal_spacing() {
+    fn strips_leading_and_trailing_whitespace() {
+        assert_eq!(tc("  hello world  "), "Hello World");
+        assert_eq!(tc("\tthe quick brown fox \t"), "The Quick Brown Fox");
+    }
+
+    #[test]
+    fn preserves_interior_spacing() {
         assert_eq!(tc("a  b"), "A  B");
     }
 
     #[test]
     fn processes_each_line_independently() {
-        assert_eq!(tc("line one\nline two"), "Line One\nLine Two");
+        assert_eq!(tc("  line one \n line two "), "Line One\nLine Two");
     }
 
     #[test]

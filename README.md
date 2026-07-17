@@ -85,14 +85,22 @@ printf 'a\n\n\n\nb'           | tt squeeze --max-newlines 3  # a + 3 newlines + 
 #### `titlecase`
 
 Smart title casing: minor words (`a`, `an`, `the`, `of`, `to`, …) stay lowercase
-unless they are the first/last word or begin a subtitle after a colon; acronyms
-and brand names with internal capitals (`NASA`, `iPhone`) are preserved;
-hyphenated compounds are capitalized part-by-part; spacing and line breaks are
-kept intact.
+unless they are the first/last word or begin a subtitle after a colon;
+already-capitalized words (`NASA`, `iPhone`, or a word you capitalized on
+purpose like `In`) are respected; hyphenated compounds are capitalized
+part-by-part; leading/trailing whitespace is stripped while interior spacing and
+line breaks are kept.
+
+| Flag                | Effect                                                  |
+|---------------------|---------------------------------------------------------|
+| `--no-respect-caps` | Re-case already-capitalized words instead of keeping them |
 
 ```sh
-echo 'the quick brown fox: a tale of two-cities' | tt titlecase
+echo '  the quick brown fox: a tale of two-cities  ' | tt titlecase
 # The Quick Brown Fox: A Tale of Two-Cities
+
+echo 'the iPhone ERA' | tt titlecase                    # The iPhone ERA
+echo 'the iPhone ERA' | tt titlecase --no-respect-caps  # The Iphone Era
 ```
 
 #### `slug`
@@ -114,14 +122,25 @@ echo 'My Post Title' | tt slug --sep _      # my_post_title
 
 Normalizes line endings to LF, applies Unicode NFC, strips control/zero-width
 characters, removes trailing whitespace, squeezes repeated spaces (preserving
-indentation), collapses runs of blank lines, and ends with a single newline.
+indentation), capitalizes standalone single letters (`i` → `I`), respects
+already-capitalized words, collapses runs of blank lines, and ends with a single
+newline.
 
-| Flag                    | Effect                                            |
-|-------------------------|---------------------------------------------------|
-| `--ascii`               | Fold smart quotes/dashes/ellipses to ASCII        |
-| `--no-squeeze`          | Keep repeated spaces                              |
-| `--keep-blank-lines`    | Keep consecutive blank lines                      |
-| `--no-trailing-newline` | Do not force a trailing newline                  |
+| Flag                       | Effect                                          |
+|----------------------------|-------------------------------------------------|
+| `--ascii`                  | Fold smart quotes/dashes/ellipses to ASCII      |
+| `--no-squeeze`             | Keep repeated spaces                            |
+| `--no-capitalize-singles`  | Do not capitalize standalone single letters     |
+| `--no-trailing-punctuation`| Strip trailing `. , ; : ! ?` from each line     |
+| `--no-respect-caps`        | Fold shouting ALL-CAPS words back to lowercase  |
+| `--keep-blank-lines`       | Keep consecutive blank lines                    |
+| `--no-trailing-newline`    | Do not force a trailing newline                 |
+
+```sh
+echo 'i think i am'      | tt clean                          # I think I am
+echo 'Hello world.'      | tt clean --no-trailing-punctuation # Hello world
+echo 'THIS is LOUD'      | tt clean --no-respect-caps         # this is loud
+```
 
 #### Identifier cases (`camel`, `pascal`, `snake`, `kebab`, `constant`)
 

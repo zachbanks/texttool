@@ -6,12 +6,17 @@
 //! 2. Apply Unicode NFC normalization so equivalent forms compare equal.
 //! 3. Strip control characters (except tab/newline) and zero-width characters.
 //! 4. Remove trailing whitespace from every line and squeeze runs of spaces.
-//! 5. Collapse three-or-more consecutive newlines down to a single blank line.
-//! 6. Trim leading/trailing blank lines and end with exactly one newline.
+//! 5. Capitalize standalone single letters (`i` -> `I`), respecting words that
+//!    are already capitalized.
+//! 6. Collapse three-or-more consecutive newlines down to a single blank line.
+//! 7. Trim leading/trailing blank lines and end with exactly one newline.
 //!
-//! Every potentially-destructive step has a flag to turn it off, and `--ascii`
-//! additionally folds common "smart" punctuation to plain ASCII.
+//! Every potentially-destructive step has a flag to turn it off; `--ascii` folds
+//! "smart" punctuation to plain ASCII, `--no-trailing-punctuation` strips
+//! sentence punctuation from line ends, and `--no-respect-caps` lets clean fold
+//! shouting ALL-CAPS words back to lowercase.
 
+use crate::casing::{capitalize_first_alpha, is_all_caps, is_single_letter, segment};
 use crate::transform::Transform;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use unicode_normalization::UnicodeNormalization;
@@ -27,6 +32,9 @@ const ZERO_WIDTH: &[char] = &[
     '\u{2060}', // word joiner
     '\u{FEFF}', // zero-width no-break space / BOM
 ];
+
+/// Sentence punctuation stripped from line ends by `--no-trailing-punctuation`.
+const TRAILING_PUNCT: &[char] = &['.', ',', ';', ':', '!', '?', '\u{2026}'];
 
 impl Clean {
     /// Normalize CRLF and lone CR line endings to `\n`.
@@ -94,6 +102,33 @@ impl Clean {
         out
     }
 
+    /// Apply per-word case fixes: fold shouting ALL-CAPS when not respecting
+    /// caps, and capitalize standalone single letters. Spacing is preserved.
+    fn apply_word_casing(line: &str, respect_caps: bool, capitalize_singles: bool) -> String {
+        segment(line)
+            .into_iter()
+            .map(|seg| {
+                if !seg.is_word {
+                    return seg.text;
+                }
+                let mut word = seg.text;
+                if !respect_caps && is_all_caps(&word) {
+                    word = word.to_lowercase();
+                }
+                if capitalize_singles && is_single_letter(&word) {
+                    word = capitalize_first_alpha(&word);
+                }
+                word
+            })
+            .collect()
+    }
+
+    /// Strip trailing sentence punctuation (and any whitespace before it).
+    fn strip_trailing_punct(line: &str) -> String {
+        line.trim_end_matches(|c: char| TRAILING_PUNCT.contains(&c) || c.is_whitespace())
+            .to_string()
+    }
+
     /// Collapse runs of blank lines to at most one blank line.
     fn collapse_blank_lines(lines: Vec<String>) -> Vec<String> {
         let mut out: Vec<String> = Vec::with_capacity(lines.len());
@@ -127,8 +162,9 @@ impl Transform for Clean {
             "Clean up messy text. By default this normalizes line endings to LF, \
              applies Unicode NFC normalization, removes control and zero-width \
              characters, strips trailing whitespace, squeezes repeated spaces, \
-             collapses blocks of blank lines, and ends the output with a single \
-             newline. Use the flags to disable individual steps.",
+             capitalizes standalone single letters, collapses blocks of blank \
+             lines, and ends the output with a single newline. Already-capitalized \
+             words are respected. Use the flags to disable individual steps.",
         )
     }
 
@@ -143,6 +179,24 @@ impl Transform for Clean {
             Arg::new("no-squeeze")
                 .long("no-squeeze")
                 .help("Keep repeated spaces instead of collapsing them")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-capitalize-singles")
+                .long("no-capitalize-singles")
+                .help("Do not capitalize standalone single letters")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-trailing-punctuation")
+                .long("no-trailing-punctuation")
+                .help("Strip trailing sentence punctuation (. , ; : ! ?) from lines")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-respect-caps")
+                .long("no-respect-caps")
+                .help("Fold shouting ALL-CAPS words back to lowercase")
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -163,6 +217,9 @@ impl Transform for Clean {
         let squeeze = !args.get_flag("no-squeeze");
         let collapse = !args.get_flag("keep-blank-lines");
         let trailing_newline = !args.get_flag("no-trailing-newline");
+        let capitalize_singles = !args.get_flag("no-capitalize-singles");
+        let respect_caps = !args.get_flag("no-respect-caps");
+        let strip_punct = args.get_flag("no-trailing-punctuation");
 
         let mut text = Self::normalize_newlines(input);
         if args.get_flag("ascii") {
@@ -173,7 +230,14 @@ impl Transform for Clean {
 
         let mut lines: Vec<String> = text
             .split('\n')
-            .map(|l| Self::tidy_line(l, squeeze))
+            .map(|line| {
+                let mut out = Self::tidy_line(line, squeeze);
+                out = Self::apply_word_casing(&out, respect_caps, capitalize_singles);
+                if strip_punct {
+                    out = Self::strip_trailing_punct(&out);
+                }
+                out
+            })
             .collect();
         if collapse {
             lines = Self::collapse_blank_lines(lines);
@@ -198,7 +262,6 @@ impl Transform for Clean {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::Command;
 
     /// Parse `clean`'s flags from an argv-style slice for testing.
     fn args(extra: &[&str]) -> ArgMatches {
@@ -209,8 +272,9 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_crlf() {
-        assert_eq!(Clean.apply("a\r\nb\r\n", &args(&[])).unwrap(), "a\nb\n");
+    fn normalizes_crlf_and_capitalizes_single_letters() {
+        // Lone single letters are capitalized by default.
+        assert_eq!(Clean.apply("a\r\nb\r\n", &args(&[])).unwrap(), "A\nB\n");
     }
 
     #[test]
@@ -224,36 +288,93 @@ mod tests {
     #[test]
     fn no_squeeze_keeps_runs() {
         assert_eq!(
-            Clean.apply("a    b", &args(&["--no-squeeze"])).unwrap(),
-            "a    b\n"
+            Clean.apply("aa    bb", &args(&["--no-squeeze"])).unwrap(),
+            "aa    bb\n"
+        );
+    }
+
+    #[test]
+    fn capitalizes_lone_i() {
+        assert_eq!(
+            Clean.apply("i think i am", &args(&[])).unwrap(),
+            "I think I am\n"
+        );
+    }
+
+    #[test]
+    fn no_capitalize_singles_flag() {
+        assert_eq!(
+            Clean
+                .apply("i am", &args(&["--no-capitalize-singles"]))
+                .unwrap(),
+            "i am\n"
+        );
+    }
+
+    #[test]
+    fn respects_capitalized_words_by_default() {
+        // ALL-CAPS words are left alone unless --no-respect-caps is given.
+        assert_eq!(
+            Clean.apply("THIS is LOUD", &args(&[])).unwrap(),
+            "THIS is LOUD\n"
+        );
+    }
+
+    #[test]
+    fn no_respect_caps_folds_shouting() {
+        assert_eq!(
+            Clean
+                .apply("THIS is LOUD", &args(&["--no-respect-caps"]))
+                .unwrap(),
+            "this is loud\n"
+        );
+    }
+
+    #[test]
+    fn trailing_punctuation_stripped_with_flag() {
+        assert_eq!(
+            Clean
+                .apply("Hello world.", &args(&["--no-trailing-punctuation"]))
+                .unwrap(),
+            "Hello world\n"
+        );
+        assert_eq!(
+            Clean
+                .apply("Wait, really?!", &args(&["--no-trailing-punctuation"]))
+                .unwrap(),
+            "Wait, really\n"
         );
     }
 
     #[test]
     fn collapses_blank_line_runs() {
-        assert_eq!(Clean.apply("a\n\n\n\nb\n", &args(&[])).unwrap(), "a\n\nb\n");
+        assert_eq!(
+            Clean.apply("go\n\n\n\ngo\n", &args(&[])).unwrap(),
+            "go\n\ngo\n"
+        );
     }
 
     #[test]
     fn keep_blank_lines_flag() {
         assert_eq!(
             Clean
-                .apply("a\n\n\n\nb", &args(&["--keep-blank-lines"]))
+                .apply("go\n\n\n\ngo", &args(&["--keep-blank-lines"]))
                 .unwrap(),
-            "a\n\n\n\nb\n"
+            "go\n\n\n\ngo\n"
         );
     }
 
     #[test]
     fn trims_surrounding_blank_lines_but_keeps_indentation() {
-        // Leading/trailing blank lines are dropped; leading indentation on a
-        // content line is preserved, trailing whitespace stripped.
         assert_eq!(Clean.apply("\n\n  hi  \n\n", &args(&[])).unwrap(), "  hi\n");
     }
 
     #[test]
     fn squeeze_preserves_leading_indentation() {
-        assert_eq!(Clean.apply("    a    b", &args(&[])).unwrap(), "    a b\n");
+        assert_eq!(
+            Clean.apply("    go    now", &args(&[])).unwrap(),
+            "    go now\n"
+        );
     }
 
     #[test]
@@ -274,8 +395,10 @@ mod tests {
     #[test]
     fn ascii_flag_replaces_nbsp_with_space() {
         assert_eq!(
-            Clean.apply("a\u{00A0}b", &args(&["--ascii"])).unwrap(),
-            "a b\n"
+            Clean
+                .apply("go\u{00A0}\u{00A0}now", &args(&["--ascii"]))
+                .unwrap(),
+            "go now\n"
         );
     }
 
