@@ -22,7 +22,7 @@
 
 use crate::acronyms::{add_acronym_args, build_acronym_set};
 use crate::casing::{
-    AcronymSet, capitalize_first_alpha, capitalize_sentences, has_uppercase, is_all_caps,
+    AcronymSet, capitalize_first_alpha, capitalize_sentences, core, has_uppercase, is_all_caps,
     is_single_letter, segment,
 };
 use crate::spellcheck::SpellChecker;
@@ -46,6 +46,27 @@ const ZERO_WIDTH: &[char] = &[
 const TRAILING_PUNCT: &[char] = &['.', ',', ';', ':', '!', '?', '\u{2026}'];
 
 impl Clean {
+    /// True when a mixed-case word ends in one isolated uppercase letter.
+    ///
+    /// This catches accidental key-release artifacts such as `ConducT` while
+    /// preserving established forms whose uppercase suffix has multiple
+    /// letters (`macOS`) and internal-cap forms (`iPhone`).
+    fn has_stray_trailing_capital(word: &str) -> bool {
+        let letters: Vec<char> = core(word).chars().filter(|c| c.is_alphabetic()).collect();
+        let Some(last) = letters.last() else {
+            return false;
+        };
+        letters.len() >= 2
+            && last.is_uppercase()
+            && letters[..letters.len() - 1]
+                .iter()
+                .skip(1)
+                .all(|c| !c.is_uppercase())
+            && letters[..letters.len() - 1]
+                .iter()
+                .any(|c| c.is_lowercase())
+    }
+
     /// Normalize CRLF and lone CR line endings to `\n`.
     fn normalize_newlines(input: &str) -> String {
         input.replace("\r\n", "\n").replace('\r', "\n")
@@ -132,6 +153,9 @@ impl Clean {
                 // Unlike names of letters ("I", "B"), English article "a"
                 // should only be uppercase when sentence casing requires it.
                 if word.eq_ignore_ascii_case("a") {
+                    return word.to_lowercase();
+                }
+                if respect_caps && Self::has_stray_trailing_capital(&word) {
                     return word.to_lowercase();
                 }
                 // Leave words the writer already capitalized alone.
@@ -385,6 +409,16 @@ mod tests {
         assert_eq!(
             Clean.apply("a test. A sequel", &args(&[])).unwrap(),
             "A test. A sequel\n"
+        );
+    }
+
+    #[test]
+    fn folds_stray_trailing_capital() {
+        assert_eq!(
+            Clean
+                .apply("ConducT cellular falloff test with invincible", &args(&[]),)
+                .unwrap(),
+            "Conduct cellular falloff test with invincible\n"
         );
     }
 
