@@ -256,7 +256,7 @@ echo '2026-07-17' | tt replace -r '(\d+)-(\d+)-(\d+)' '$3/$2/$1'  # 17/07/2026
 Normalizes line endings to LF, applies Unicode NFC, strips control/zero-width
 characters, removes trailing whitespace, squeezes repeated spaces (preserving
 indentation), fixes casing (recognized acronyms → uppercase, standalone single
-letters → uppercase, first letter of each sentence → uppercase — sentence starts
+letters → uppercase except article `a`, first letter of each sentence → uppercase — sentence starts
 only, so wrapped lines aren't over-capitalized — while respecting
 already-capitalized words), collapses runs of blank lines, and ends with a single
 newline.

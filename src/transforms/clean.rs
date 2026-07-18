@@ -7,8 +7,8 @@
 //! 3. Strip control characters (except tab/newline) and zero-width characters.
 //! 4. Remove trailing whitespace from every line and squeeze runs of spaces.
 //! 5. Fix casing (respecting already-capitalized words): capitalize recognized
-//!    acronyms (`api` -> `API`), standalone single letters (`i` -> `I`), and the
-//!    first letter of each sentence.
+//!    acronyms (`api` -> `API`), standalone single letters (`i` -> `I`), the
+//!    article `a` contextually, and the first letter of each sentence.
 //! 6. Optionally correct misspellings using the system spell checker.
 //! 7. Collapse three-or-more consecutive newlines down to a single blank line.
 //! 8. Trim leading/trailing blank lines and end with exactly one newline.
@@ -113,7 +113,9 @@ impl Clean {
 
     /// Apply per-word case fixes: respect already-capitalized words, fold
     /// shouting ALL-CAPS when not respecting caps, uppercase recognized
-    /// acronyms, and capitalize standalone single letters. Spacing is preserved.
+    /// acronyms, and capitalize standalone single letters. The article `a` is
+    /// kept lowercase here, then sentence casing capitalizes it when needed.
+    /// Spacing is preserved.
     fn apply_word_casing(
         line: &str,
         respect_caps: bool,
@@ -127,6 +129,11 @@ impl Clean {
                     return seg.text;
                 }
                 let mut word = seg.text;
+                // Unlike names of letters ("I", "B"), English article "a"
+                // should only be uppercase when sentence casing requires it.
+                if word.eq_ignore_ascii_case("a") {
+                    return word.to_lowercase();
+                }
                 // Leave words the writer already capitalized alone.
                 if respect_caps && has_uppercase(&word) {
                     return word;
@@ -364,6 +371,20 @@ mod tests {
         assert_eq!(
             Clean.apply("i think i am", &args(&[])).unwrap(),
             "I think I am\n"
+        );
+    }
+
+    #[test]
+    fn smart_cases_article_a() {
+        assert_eq!(
+            Clean
+                .apply("This Is A Test and this is another test", &args(&[]))
+                .unwrap(),
+            "This Is a Test and this is another test\n"
+        );
+        assert_eq!(
+            Clean.apply("a test. A sequel", &args(&[])).unwrap(),
+            "A test. A sequel\n"
         );
     }
 
