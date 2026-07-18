@@ -104,7 +104,7 @@ impl Transform for TitleCase {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to smart Title Case"
+        "Convert text to smart Title Case [e.g. \"the lord of the rings\" -> \"The Lord of the Rings\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {

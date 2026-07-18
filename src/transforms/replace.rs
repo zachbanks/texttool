@@ -17,7 +17,7 @@ impl Transform for Replace {
     }
 
     fn about(&self) -> &'static str {
-        "Find and replace text (literal or regex)"
+        "Find and replace text (literal or regex) [e.g. \"-\" -> \" \"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {

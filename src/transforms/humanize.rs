@@ -10,7 +10,7 @@
 //!
 //! `Thorne-magnesium-receipt-2026-07-17.pdf` -> `Thorne magnesium receipt 2026 07 17`
 
-use crate::patterns::{add_pattern_args, load_categories};
+use crate::patterns::{add_pattern_args, default_patterns, load_categories};
 use crate::transform::Transform;
 use crate::transforms::{Clean, TitleCase, Unslug};
 use clap::{Arg, ArgAction, ArgMatches, Command};
@@ -31,7 +31,7 @@ impl Transform for Humanize {
     }
 
     fn about(&self) -> &'static str {
-        "Turn a filename/slug into clean, readable text"
+        "Turn a filename/slug into clean, readable text [e.g. \"my_vacation.photo.JPG\" -> \"My vacation photo\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {
@@ -76,21 +76,28 @@ impl Transform for Humanize {
             // fire next to one. Normalize `_` -> `-` first (transparent, since
             // unslug treats both as delimiters) so `_`-delimited dates match too.
             work = work.replace('_', "-");
-            let categories = load_categories(args)?;
-            if let Some(dates) = categories
-                .iter()
+            // Prefer a configured Dates pattern (honoring --patterns-file and any
+            // override), but always fall back to the built-in so disabling Dates
+            // in config never leaves --keep-dates doing nothing.
+            let configured = load_categories(args)?
+                .into_iter()
                 .find(|c| c.name.eq_ignore_ascii_case("dates"))
-            {
-                let re =
-                    Regex::new(&dates.regex).map_err(|e| format!("invalid Dates pattern: {e}"))?;
-                work = re
-                    .replace_all(&work, |caps: &regex::Captures| {
-                        let token = format!("DATEHOLDER{}", protected.len());
-                        protected.push(caps[0].to_string());
-                        token
-                    })
-                    .into_owned();
-            }
+                .map(|c| c.regex);
+            let dates_regex = configured.unwrap_or_else(|| {
+                default_patterns()
+                    .into_iter()
+                    .find(|c| c.name.eq_ignore_ascii_case("dates"))
+                    .map(|c| c.regex)
+                    .expect("built-in Dates category always exists")
+            });
+            let re = Regex::new(&dates_regex).map_err(|e| format!("invalid Dates pattern: {e}"))?;
+            work = re
+                .replace_all(&work, |caps: &regex::Captures| {
+                    let token = format!("DATEHOLDER{}", protected.len());
+                    protected.push(caps[0].to_string());
+                    token
+                })
+                .into_owned();
         }
 
         // 1. Drop a trailing file extension on each line (.pdf, .jpeg, …).
@@ -175,6 +182,42 @@ mod tests {
                 .unwrap(),
             "Invoice 12/25/2026 final\n"
         );
+    }
+
+    #[test]
+    fn keep_dates_handles_more_formats() {
+        // Slash-ISO (was previously unmatched).
+        assert_eq!(
+            Humanize
+                .apply("notes 2026/07/17 draft", &args(&["--keep-dates"]))
+                .unwrap(),
+            "Notes 2026/07/17 draft\n"
+        );
+        // "D Month Y".
+        assert_eq!(
+            Humanize
+                .apply("memo 17 July 2026 v1", &args(&["--keep-dates"]))
+                .unwrap(),
+            "Memo 17 July 2026 v1\n"
+        );
+    }
+
+    #[test]
+    fn keep_dates_falls_back_when_config_disables_dates() {
+        use std::io::Write;
+        let mut path = std::env::temp_dir();
+        path.push(format!("texttool-hz-{}.toml", std::process::id()));
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(f, "[[category]]\nname = \"Dates\"\nenabled = false").unwrap();
+        let out = Humanize
+            .apply(
+                "receipt-2026-07-17",
+                &args(&["--keep-dates", "--patterns-file", path.to_str().unwrap()]),
+            )
+            .unwrap();
+        let _ = std::fs::remove_file(&path);
+        // Built-in Dates pattern still protects the date.
+        assert_eq!(out, "Receipt 2026-07-17\n");
     }
 
     #[test]

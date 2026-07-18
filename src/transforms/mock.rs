@@ -16,7 +16,7 @@ impl Transform for Mock {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to mOcKiNg aLtErNaTiNg case"
+        "Convert text to mOcKiNg aLtErNaTiNg case [e.g. \"just for fun\" -> \"jUsT fOr FuN\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {

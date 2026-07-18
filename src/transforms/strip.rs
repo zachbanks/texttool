@@ -173,7 +173,7 @@ impl Transform for Strip {
     }
 
     fn about(&self) -> &'static str {
-        "Strip decorative punctuation and noise from the edges of text"
+        "Strip decorative punctuation and noise from the edges of text [e.g. \"-- hello --\" -> \"hello\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {

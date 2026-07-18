@@ -107,4 +107,17 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn subcommand_about_lines_include_examples() {
+        let cmd = build_command(&default_registry());
+        for subcommand in cmd.get_subcommands() {
+            let about = format!("{}", subcommand.get_about().expect("subcommand about"));
+            assert!(
+                about.contains("[e.g.") && about.ends_with(']'),
+                "help summary for `{}` should end with an example: {about}",
+                subcommand.get_name()
+            );
+        }
+    }
 }

@@ -71,7 +71,7 @@ impl Transform for Squeeze {
     }
 
     fn about(&self) -> &'static str {
-        "Collapse excess spaces, tabs, and newlines"
+        "Collapse excess spaces, tabs, and newlines [e.g. \"a   b\\t c\" -> \"a b c\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {

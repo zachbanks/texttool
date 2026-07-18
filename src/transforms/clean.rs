@@ -172,7 +172,7 @@ impl Transform for Clean {
     }
 
     fn about(&self) -> &'static str {
-        "Tidy whitespace, line endings, and invisible characters"
+        "Tidy whitespace, line endings, and invisible characters [e.g. \"a  b\\r\\n\" -> \"a b\\n\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {

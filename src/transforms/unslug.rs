@@ -17,7 +17,7 @@ impl Transform for Unslug {
     }
 
     fn about(&self) -> &'static str {
-        "Turn slugs/identifiers into spaced words (inverse of slug)"
+        "Turn slugs/identifiers into spaced words (inverse of slug) [e.g. \"helloWorld\" -> \"hello World\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {

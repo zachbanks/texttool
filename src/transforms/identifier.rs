@@ -26,7 +26,7 @@ impl Transform for Camel {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to camelCase"
+        "Convert text to camelCase [e.g. \"hello world\" -> \"helloWorld\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {
@@ -59,7 +59,7 @@ impl Transform for Pascal {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to PascalCase"
+        "Convert text to PascalCase [e.g. \"hello world\" -> \"HelloWorld\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {
@@ -82,7 +82,7 @@ impl Transform for Snake {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to snake_case"
+        "Convert text to snake_case [e.g. \"hello world\" -> \"hello_world\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {
@@ -109,7 +109,7 @@ impl Transform for Kebab {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to kebab-case"
+        "Convert text to kebab-case [e.g. \"hello world\" -> \"hello-world\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {
@@ -136,7 +136,7 @@ impl Transform for Constant {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to CONSTANT_CASE (SCREAMING_SNAKE_CASE)"
+        "Convert text to CONSTANT_CASE (SCREAMING_SNAKE_CASE) [e.g. \"hello world\" -> \"HELLO_WORLD\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {

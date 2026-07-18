@@ -89,7 +89,7 @@ impl Transform for Extract {
     }
 
     fn about(&self) -> &'static str {
-        "Extract phone numbers, emails, dates, and more into Markdown sections"
+        "Extract phone numbers, emails, dates, and more into Markdown sections [e.g. \"Call 123-456-7890\" -> \"# Phone Numbers\\n123-456-7890\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {

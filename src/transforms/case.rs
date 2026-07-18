@@ -15,7 +15,7 @@ impl Transform for Upper {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to UPPERCASE"
+        "Convert text to UPPERCASE [e.g. \"hello\" -> \"HELLO\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {
@@ -36,7 +36,7 @@ impl Transform for Lower {
     }
 
     fn about(&self) -> &'static str {
-        "Convert text to lowercase"
+        "Convert text to lowercase [e.g. \"HELLO\" -> \"hello\"]"
     }
 
     fn aliases(&self) -> &'static [&'static str] {

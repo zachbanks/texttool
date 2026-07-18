@@ -45,7 +45,7 @@ impl Transform for Slug {
     }
 
     fn about(&self) -> &'static str {
-        "Slugify text into URL/filename-friendly form"
+        "Slugify text into URL/filename-friendly form [e.g. \"Hello, World!\" -> \"hello-world\"]"
     }
 
     fn long_about(&self) -> Option<&'static str> {
