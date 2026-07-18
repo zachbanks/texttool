@@ -9,20 +9,23 @@
 //! 5. Fix casing (respecting already-capitalized words): capitalize recognized
 //!    acronyms (`api` -> `API`), standalone single letters (`i` -> `I`), and the
 //!    first letter of each sentence.
-//! 6. Collapse three-or-more consecutive newlines down to a single blank line.
-//! 7. Trim leading/trailing blank lines and end with exactly one newline.
+//! 6. Optionally correct misspellings using the system spell checker.
+//! 7. Collapse three-or-more consecutive newlines down to a single blank line.
+//! 8. Trim leading/trailing blank lines and end with exactly one newline.
 //!
 //! Every step has a flag to turn it off; `--ascii` folds "smart" punctuation to
 //! plain ASCII, `--no-trailing-punctuation` strips sentence punctuation from
 //! line ends, `--acronyms`/`--no-acronyms` tune acronym handling, and
 //! `--no-respect-caps` lets clean fold shouting ALL-CAPS words back to
-//! lowercase.
+//! lowercase. `--spellcheck` uses the system spell checker to replace
+//! misspelled isolated words with the first suggested correction.
 
 use crate::acronyms::{add_acronym_args, build_acronym_set};
 use crate::casing::{
     AcronymSet, capitalize_first_alpha, capitalize_sentences, has_uppercase, is_all_caps,
     is_single_letter, segment,
 };
+use crate::spellcheck::SpellChecker;
 use crate::transform::Transform;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use unicode_normalization::UnicodeNormalization;
@@ -147,6 +150,20 @@ impl Clean {
             .to_string()
     }
 
+    /// Apply system spell-check corrections to isolated words on macOS.
+    fn apply_spellcheck(line: &str, spellchecker: &SpellChecker) -> Result<String, String> {
+        segment(line)
+            .into_iter()
+            .map(|seg| {
+                if !seg.is_word {
+                    return Ok(seg.text);
+                }
+                spellchecker.correct_word(&seg.text)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(|segments| segments.concat())
+    }
+
     /// Collapse runs of blank lines to at most one blank line.
     fn collapse_blank_lines(lines: Vec<String>) -> Vec<String> {
         let mut out: Vec<String> = Vec::with_capacity(lines.len());
@@ -225,6 +242,12 @@ impl Transform for Clean {
                     .action(ArgAction::SetTrue),
             )
             .arg(
+                Arg::new("spellcheck")
+                    .long("spellcheck")
+                    .help("Correct misspelled words using the system spell checker [e.g. \"wgord\" -> \"word\"]")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
                 Arg::new("keep-blank-lines")
                     .long("keep-blank-lines")
                     .help("Keep consecutive blank lines [e.g. \"a\\n\\n\\nb\" keeps both blanks]")
@@ -247,6 +270,11 @@ impl Transform for Clean {
         let cap_sentences = !args.get_flag("no-capitalize-sentences");
         let respect_caps = !args.get_flag("no-respect-caps");
         let strip_punct = args.get_flag("no-trailing-punctuation");
+        let spellcheck = if args.get_flag("spellcheck") {
+            Some(SpellChecker::new()?)
+        } else {
+            None
+        };
         let acronyms = build_acronym_set(args);
 
         let mut text = Self::normalize_newlines(input);
@@ -258,15 +286,18 @@ impl Transform for Clean {
 
         let mut lines: Vec<String> = text
             .split('\n')
-            .map(|line| {
+            .map(|line| -> Result<String, String> {
                 let mut out = Self::tidy_line(line, squeeze);
                 out = Self::apply_word_casing(&out, respect_caps, capitalize_singles, &acronyms);
                 if strip_punct {
                     out = Self::strip_trailing_punct(&out);
                 }
-                out
+                if let Some(spellchecker) = spellcheck.as_ref() {
+                    out = Self::apply_spellcheck(&out, spellchecker)?;
+                }
+                Ok(out)
             })
-            .collect();
+            .collect::<Result<Vec<_>, String>>()?;
         if collapse {
             lines = Self::collapse_blank_lines(lines);
         }
@@ -515,6 +546,20 @@ mod tests {
                 .apply("hi\n", &args(&["--no-trailing-newline"]))
                 .unwrap(),
             "Hi"
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn spellcheck_corrects_an_isolated_typo() {
+        assert_eq!(
+            Clean
+                .apply(
+                    "this is the \"wgord\"",
+                    &args(&["--no-capitalize-sentences", "--spellcheck"])
+                )
+                .unwrap(),
+            "this is the \"word\"\n"
         );
     }
 }

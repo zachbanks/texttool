@@ -12,6 +12,7 @@ mod cli;
 mod io;
 mod patterns;
 mod registry;
+mod spellcheck;
 mod transform;
 mod transforms;
 
