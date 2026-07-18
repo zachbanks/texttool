@@ -14,11 +14,11 @@
 //! 8. Trim leading/trailing blank lines and end with exactly one newline.
 //!
 //! Every step has a flag to turn it off; `--ascii` folds "smart" punctuation to
-//! plain ASCII, `--no-trailing-punctuation` strips sentence punctuation from
-//! line ends, `--acronyms`/`--no-acronyms` tune acronym handling, and
-//! `--no-respect-caps` lets clean fold shouting ALL-CAPS words back to
-//! lowercase. `--spellcheck` uses the system spell checker to replace
-//! misspelled isolated words with the first suggested correction.
+//! plain ASCII, `--no-trailing-punctuation` (`--no-sentence-punctuation`) strips
+//! sentence punctuation from line ends, `--acronyms`/`--no-acronyms` tune
+//! acronym handling, and `--no-respect-caps` lets clean fold shouting ALL-CAPS
+//! words back to lowercase. `--spellcheck` uses the system spell checker to
+//! replace misspelled isolated words with the first suggested correction.
 
 use crate::acronyms::{add_acronym_args, build_acronym_set};
 use crate::casing::{
@@ -232,6 +232,7 @@ impl Transform for Clean {
             .arg(
                 Arg::new("no-trailing-punctuation")
                     .long("no-trailing-punctuation")
+                    .visible_alias("no-sentence-punctuation")
                     .help("Strip trailing sentence punctuation [e.g. \"Hi there.\" -> \"Hi there\"]")
                     .action(ArgAction::SetTrue),
             )
@@ -546,6 +547,16 @@ mod tests {
                 .apply("hi\n", &args(&["--no-trailing-newline"]))
                 .unwrap(),
             "Hi"
+        );
+    }
+
+    #[test]
+    fn no_sentence_punctuation_alias_works() {
+        assert_eq!(
+            Clean
+                .apply("Hello world.", &args(&["--no-sentence-punctuation"]))
+                .unwrap(),
+            "Hello world\n"
         );
     }
 
