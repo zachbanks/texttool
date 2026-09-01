@@ -47,6 +47,7 @@ standard output unless `-o/--output <FILE>` is given.
 | Operation   | Aliases                | Description                                      |
 |-------------|------------------------|--------------------------------------------------|
 | `clean`     |                        | Tidy whitespace, line endings, invisible chars   |
+| `spellcheck`| `spell`                | Fix spelling via the system spell checker (macOS)|
 | `squeeze`   | `sq`, `normalize-ws`   | Collapse excess spaces, tabs, and newlines       |
 | `strip`     | `text-strip`           | Strip decorative punctuation/noise from edges    |
 | `extract`   | `infoparse`            | Pull phones/emails/dates/… into Markdown sections|
@@ -308,6 +309,26 @@ is the built-in list plus anything you configure, from three layered sources:
 ```sh
 echo 'the tui repl' | tt titlecase --acronyms tui,repl   # The TUI REPL
 echo 'the api docs' | tt titlecase --no-acronyms          # The Api Docs
+```
+
+#### `spellcheck`
+
+Corrects misspelled words using the system spell checker, replacing each
+misspelling with its first suggested correction. Unlike `clean`, it changes
+*only* the words: the document's structure is preserved byte-for-byte around
+them — line breaks, tabs, indentation, blank lines, a missing trailing newline,
+and surrounding markup (markdown markers, punctuation, quotes) are all left
+untouched. Each line is checked independently, and only the alphabetic core of
+each isolated word is ever replaced.
+
+Spell checking uses macOS's `NSSpellChecker`; on other platforms the command
+reports that it is unsupported rather than passing text through unchanged. The
+same engine backs `clean --spellcheck` — reach for `spellcheck` when you want
+correction *without* `clean`'s whitespace and casing changes.
+
+```sh
+echo 'i recieve the mesage'        | tt spellcheck   # i receive the message
+printf '# Notes\n- **recieve** it\n' | tt spellcheck   # markdown structure preserved
 ```
 
 #### Identifier cases (`camel`, `pascal`, `snake`, `kebab`, `constant`)

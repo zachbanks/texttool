@@ -1,4 +1,5 @@
-//! Optional system spell-check integration for `clean`.
+//! System spell-check integration, shared by the `spellcheck` command and
+//! `clean --spellcheck`.
 //!
 //! The implementation is intentionally isolated because it relies on
 //! macOS-specific Foundation/AppKit APIs. On non-macOS targets the helper
@@ -256,7 +257,7 @@ mod imp {
 
     impl SpellChecker {
         pub(crate) fn new() -> Result<Self, String> {
-            Err("--spellcheck is only supported on macOS".to_string())
+            Err("spell checking is only supported on macOS".to_string())
         }
 
         pub(crate) fn correct_word(&self, word: &str) -> Result<String, String> {
