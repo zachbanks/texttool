@@ -201,12 +201,33 @@ mod tests {
     }
 
     #[test]
+    fn capitalizes_unlisted_consonant_run_acronyms() {
+        assert_eq!(tc("the cnc handbook"), "The CNC Handbook");
+    }
+
+    #[test]
+    fn two_letter_small_word_vs_not_treated_as_acronym() {
+        // "vs" is a lowercase minor word, not a consonant-run acronym.
+        assert_eq!(tc("cats vs dogs"), "Cats vs Dogs");
+    }
+
+    #[test]
     fn no_acronyms_flag_disables_them() {
         assert_eq!(
             TitleCase
                 .apply("the api docs", &args(&["--no-acronyms"]))
                 .unwrap(),
             "The Api Docs"
+        );
+    }
+
+    #[test]
+    fn no_acronyms_flag_disables_consonant_heuristic() {
+        assert_eq!(
+            TitleCase
+                .apply("the cnc handbook", &args(&["--no-acronyms"]))
+                .unwrap(),
+            "The Cnc Handbook"
         );
     }
 

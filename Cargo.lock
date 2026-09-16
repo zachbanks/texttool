@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "texttool"
-version = "0.11.9"
+version = "0.11.10"
 dependencies = [
  "clap",
  "regex",

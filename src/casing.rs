@@ -166,17 +166,83 @@ pub const DEFAULT_ACRONYMS: &[&str] = &[
     "hiv", "usa", "uk", "eu", "un", "nasa", "fbi", "cia", "nsa", "atm", "gps", "sos", "diy",
     "nato", "utc", "gmt", "ascii", "utf", "wifi", "led", "lcd", "vip", "mvp", "suv", "io", "os",
     "ui", "ux", "pc", "tv", "gui", "cli", "sdk", "ide", "orm", "jwt", "tcp", "udp", "dns", "ssl",
-    "tls",
+    "tls", "hq", "qr", "kpi", "roi", "eta", "aka", "vpn", "vps", "cdn", "npm", "aws", "gcp", "iot",
+    "ocr", "otp", "mfa", "sso", "saas", "paas", "iaas", "crud", "regex", "repl",
 ];
+
+/// Minimum length for a consonant-only run to be treated as an acronym.
+///
+/// Two-letter clusters are excluded because many are ordinary abbreviations
+/// that are *not* all-caps acronyms (`Mr`, `Dr`, `St`, `ft`, `vs`); genuine
+/// two-letter acronyms (`js`, `tv`, `pc`, `io`) live in [`DEFAULT_ACRONYMS`]
+/// instead. At three-plus letters, an all-consonant run is almost always an
+/// initialism (`cnc`, `sql`, `xml`, `html`).
+const MIN_HEURISTIC_ACRONYM_LEN: usize = 3;
+
+/// Consonant-only strings that are *not* acronyms and must escape the
+/// heuristic: interjections and a few abbreviations conventionally written
+/// lower- or title-case. Without this, the shape rule would shout `hmm` into
+/// `HMM` and `Mrs` into `MRS`. Entries are lowercase and matched against the
+/// word's lowercased core.
+const HEURISTIC_EXCEPTIONS: &[&str] = &[
+    // interjections / onomatopoeia
+    "hmm", "hmmm", "shh", "shhh", "pst", "psst", "brr", "brrr", "grr", "grrr", "tsk", "tsks",
+    "pfft", "mmm", "mmhm", "zzz", "psh", // abbreviations conventionally not all-caps
+    "mrs", "mr", "dr", "st", "nth",
+];
+
+/// True if `c` is a vowel for acronym-detection purposes.
+///
+/// `y` counts as a vowel here so that ordinary vowel-less English words
+/// (`gym`, `why`, `dry`, `rhythm`) are not mistaken for acronyms.
+fn is_vowel(c: char) -> bool {
+    matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'y')
+}
+
+/// Heuristic: does `word`'s core look like an acronym on its own, without
+/// appearing in any list?
+///
+/// True when the core is three-or-more ASCII letters with no vowel — a run of
+/// pure consonants, which is how initialisms like `cnc`, `sql`, and `html`
+/// read. Excluded, for robustness:
+///
+/// - words containing any vowel (`nasa`, `cat`, `api`) — pronounceable
+///   acronyms are indistinguishable from ordinary words by shape and must come
+///   from the acronym list instead;
+/// - anything with a digit or non-ASCII letter (`mp3`, `h2o`, `naïve`) — not a
+///   plain consonant run;
+/// - two-letter clusters (see [`MIN_HEURISTIC_ACRONYM_LEN`]);
+/// - the [`HEURISTIC_EXCEPTIONS`] (`hmm`, `mrs`, `nth`, …).
+fn looks_like_acronym(word: &str) -> bool {
+    let c = core(word).to_lowercase();
+    let mut letters = 0usize;
+    for ch in c.chars() {
+        if !ch.is_ascii_alphabetic() {
+            return false; // digits or non-ASCII letters: not a plain consonant run
+        }
+        if is_vowel(ch) {
+            return false;
+        }
+        letters += 1;
+    }
+    letters >= MIN_HEURISTIC_ACRONYM_LEN && !HEURISTIC_EXCEPTIONS.contains(&c.as_str())
+}
 
 /// A case-insensitive set of words to fully capitalize as acronyms.
 pub struct AcronymSet {
     words: HashSet<String>,
+    /// Whether to also treat vowel-less consonant runs as acronyms. Disabled by
+    /// `--no-acronyms` so that flag turns off *all* acronym capitalization.
+    use_heuristic: bool,
 }
 
 impl AcronymSet {
     /// Build a set from the built-in defaults (when `use_defaults`) plus any
     /// extra comma/space-separated entries.
+    ///
+    /// `use_defaults` also enables the consonant-run heuristic (see
+    /// [`looks_like_acronym`]); it is only false for `--no-acronyms`, which
+    /// disables acronym handling entirely.
     pub fn new(use_defaults: bool, extra: &[String]) -> Self {
         let mut words = HashSet::new();
         if use_defaults {
@@ -190,13 +256,21 @@ impl AcronymSet {
                 }
             }
         }
-        Self { words }
+        Self {
+            words,
+            use_heuristic: use_defaults,
+        }
     }
 
-    /// True if the word's alphanumeric core is a recognized acronym.
+    /// True if the word's alphanumeric core is a recognized acronym — either a
+    /// listed entry or, when the heuristic is enabled, a vowel-less consonant
+    /// run (`cnc`, `sql`).
     pub fn matches(&self, word: &str) -> bool {
         let c = core(word).to_lowercase();
-        !c.is_empty() && self.words.contains(&c)
+        if c.is_empty() {
+            return false;
+        }
+        self.words.contains(&c) || (self.use_heuristic && looks_like_acronym(word))
     }
 }
 
@@ -322,6 +396,75 @@ mod tests {
         let no_defaults = AcronymSet::new(false, &["baz".to_string()]);
         assert!(no_defaults.matches("baz"));
         assert!(!no_defaults.matches("api"));
+    }
+
+    #[test]
+    fn consonant_run_heuristic_catches_unlisted_acronyms() {
+        let set = AcronymSet::new(true, &[]);
+        // Vowel-less runs of 3+ letters are acronyms even when unlisted.
+        assert!(set.matches("cnc"));
+        assert!(set.matches("dvr"));
+        assert!(set.matches("sql"));
+        assert!(set.matches("mgmt"));
+        assert!(set.matches("(cnc)")); // punctuation ignored via core()
+        assert!(set.matches("PWM")); // case-insensitive
+    }
+
+    #[test]
+    fn heuristic_leaves_vowel_words_and_short_clusters_alone() {
+        let set = AcronymSet::new(true, &[]);
+        // Ordinary words with vowels are not acronyms by shape.
+        assert!(!set.matches("cat"));
+        assert!(!set.matches("world"));
+        // `y` counts as a vowel, so these stay lowercase.
+        assert!(!set.matches("gym"));
+        assert!(!set.matches("why"));
+        assert!(!set.matches("dry"));
+        assert!(!set.matches("rhythm"));
+        // Two-letter clusters are too ambiguous for the heuristic (Mr, Dr, vs).
+        assert!(!set.matches("mr"));
+        assert!(!set.matches("vs"));
+        // Digits mean it is not a pure consonant run.
+        assert!(!set.matches("mp3"));
+        assert!(!set.matches("h2o"));
+        // Non-ASCII letters bail out rather than half-matching.
+        assert!(!set.matches("naïve"));
+    }
+
+    #[test]
+    fn heuristic_exceptions_are_not_shouted() {
+        let set = AcronymSet::new(true, &[]);
+        // Interjections and conventional abbreviations stay as written.
+        assert!(!set.matches("hmm"));
+        assert!(!set.matches("shh"));
+        assert!(!set.matches("brr"));
+        assert!(!set.matches("zzz"));
+        assert!(!set.matches("mrs"));
+        assert!(!set.matches("nth"));
+    }
+
+    #[test]
+    fn heuristic_still_covers_vowel_acronyms_via_list() {
+        let set = AcronymSet::new(true, &[]);
+        // Pronounceable acronyms can't be detected by shape; the list carries them.
+        assert!(set.matches("nasa"));
+        assert!(set.matches("api"));
+        // A listed two-letter acronym still matches despite the length floor.
+        assert!(set.matches("js"));
+        // Newly listed common acronyms the shape rule can't catch.
+        assert!(set.matches("hq"));
+        assert!(set.matches("qr"));
+        assert!(set.matches("kpi"));
+        assert!(set.matches("roi"));
+    }
+
+    #[test]
+    fn no_acronyms_disables_the_heuristic_too() {
+        // `--no-acronyms` builds a set with defaults off; the consonant-run
+        // heuristic must be off as well, not just the word list.
+        let set = AcronymSet::new(false, &[]);
+        assert!(!set.matches("cnc"));
+        assert!(!set.matches("sql"));
     }
 
     #[test]

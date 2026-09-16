@@ -461,12 +461,39 @@ mod tests {
     }
 
     #[test]
+    fn capitalizes_unlisted_consonant_run_acronyms() {
+        assert_eq!(
+            Clean.apply("run the cnc mill", &args(&[])).unwrap(),
+            "Run the CNC mill\n"
+        );
+    }
+
+    #[test]
+    fn leaves_vowel_words_lowercase() {
+        // "gym" (y-vowel) and "why" must not be mistaken for acronyms.
+        assert_eq!(
+            Clean.apply("why the gym today", &args(&[])).unwrap(),
+            "Why the gym today\n"
+        );
+    }
+
+    #[test]
     fn no_acronyms_flag_disables_them() {
         assert_eq!(
             Clean
                 .apply("visit nasa", &args(&["--no-acronyms"]))
                 .unwrap(),
             "Visit nasa\n"
+        );
+    }
+
+    #[test]
+    fn no_acronyms_flag_disables_consonant_heuristic() {
+        assert_eq!(
+            Clean
+                .apply("run the cnc", &args(&["--no-acronyms"]))
+                .unwrap(),
+            "Run the cnc\n"
         );
     }
 
