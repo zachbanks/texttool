@@ -14,7 +14,7 @@
 //! - Leading and trailing whitespace is stripped; interior spacing is kept.
 
 use crate::acronyms::{add_acronym_args, build_acronym_set};
-use crate::casing::{AcronymSet, capitalize_first_alpha, core, has_uppercase};
+use crate::casing::{AcronymSet, core, has_uppercase};
 use crate::transform::Transform;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
@@ -30,9 +30,35 @@ pub struct TitleCase;
 /// Capitalize each hyphen-separated part of a word.
 fn capitalize_hyphenated(word: &str) -> String {
     word.split('-')
-        .map(capitalize_first_alpha)
+        .map(capitalize_word_initial)
         .collect::<Vec<_>>()
         .join("-")
+}
+
+/// Capitalize a word's first letter, but only when the word begins with a
+/// letter (after any leading punctuation). A number-led word — an ordinal or
+/// decade plural like `1st` or `90s` — keeps its trailing letters lowercase, so
+/// title casing yields `1st` / `90s` rather than `1St` / `90S`.
+fn capitalize_word_initial(word: &str) -> String {
+    let mut result = String::with_capacity(word.len());
+    let mut chars = word.chars().peekable();
+    // Emit any leading punctuation verbatim ("(word" -> "(Word").
+    while chars.peek().is_some_and(|c| !c.is_alphanumeric()) {
+        result.push(chars.next().unwrap());
+    }
+    match chars.next() {
+        None => {}
+        // Number-led: leave the remainder untouched (no "1St").
+        Some(first) if first.is_numeric() => {
+            result.push(first);
+            result.extend(chars);
+        }
+        Some(first) => {
+            result.extend(first.to_uppercase());
+            result.extend(chars);
+        }
+    }
+    result
 }
 
 /// Apply the casing rules to a single word given its position in the line.
@@ -228,6 +254,13 @@ mod tests {
     fn word_with_number_gets_ordinary_title_casing() {
         // "chapter2" is not a code; it just gets its first letter capitalized.
         assert_eq!(tc("chapter2 notes"), "Chapter2 Notes");
+    }
+
+    #[test]
+    fn number_led_ordinals_and_decades_keep_letters_lowercase() {
+        // Number-led words are not capitalized on their trailing letters.
+        assert_eq!(tc("1st place in the 90s"), "1st Place in the 90s");
+        assert_eq!(tc("the 2nd and 3rd rows"), "The 2nd and 3rd Rows");
     }
 
     #[test]
