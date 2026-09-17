@@ -155,6 +155,12 @@ impl Clean {
                 if word.eq_ignore_ascii_case("a") {
                     return word.to_lowercase();
                 }
+                // Recognized acronyms and codes are always fully capitalized,
+                // even when the writer typed them half-cased ("Bh1750" ->
+                // "BH1750", "Json" -> "JSON"), so this wins over respect-caps.
+                if acronyms.matches(&word) {
+                    return word.to_uppercase();
+                }
                 if respect_caps && Self::has_stray_trailing_capital(&word) {
                     return word.to_lowercase();
                 }
@@ -165,9 +171,7 @@ impl Clean {
                 if !respect_caps && is_all_caps(&word) {
                     word = word.to_lowercase();
                 }
-                if acronyms.matches(&word) {
-                    word = word.to_uppercase();
-                } else if capitalize_singles && is_single_letter(&word) {
+                if capitalize_singles && is_single_letter(&word) {
                     word = capitalize_first_alpha(&word);
                 }
                 word
@@ -474,6 +478,34 @@ mod tests {
         assert_eq!(
             Clean.apply("why the gym today", &args(&[])).unwrap(),
             "Why the gym today\n"
+        );
+    }
+
+    #[test]
+    fn capitalizes_letter_led_codes() {
+        assert_eq!(
+            Clean
+                .apply("read the bh1750 datasheet", &args(&[]))
+                .unwrap(),
+            "Read the BH1750 datasheet\n"
+        );
+    }
+
+    #[test]
+    fn normalizes_half_cased_codes_over_respect_caps() {
+        // A half-typed code is fixed despite respect-caps being on by default.
+        assert_eq!(
+            Clean.apply("wire the Bh1750 sensor", &args(&[])).unwrap(),
+            "Wire the BH1750 sensor\n"
+        );
+    }
+
+    #[test]
+    fn leaves_word_with_number_lowercase() {
+        // "page5" has a vowel: an ordinary word, not a code.
+        assert_eq!(
+            Clean.apply("see the page5 link", &args(&[])).unwrap(),
+            "See the page5 link\n"
         );
     }
 

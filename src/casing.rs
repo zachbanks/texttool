@@ -199,31 +199,54 @@ fn is_vowel(c: char) -> bool {
     matches!(c, 'a' | 'e' | 'i' | 'o' | 'u' | 'y')
 }
 
-/// Heuristic: does `word`'s core look like an acronym on its own, without
-/// appearing in any list?
+/// Heuristic: does `word`'s core look like an acronym or an alphanumeric code,
+/// without appearing in any list?
 ///
-/// True when the core is three-or-more ASCII letters with no vowel — a run of
-/// pure consonants, which is how initialisms like `cnc`, `sql`, and `html`
-/// read. Excluded, for robustness:
+/// Two shapes qualify, and both require every *letter* to be a consonant so
+/// ordinary words never match:
 ///
-/// - words containing any vowel (`nasa`, `cat`, `api`) — pronounceable
-///   acronyms are indistinguishable from ordinary words by shape and must come
-///   from the acronym list instead;
-/// - anything with a digit or non-ASCII letter (`mp3`, `h2o`, `naïve`) — not a
-///   plain consonant run;
-/// - two-letter clusters (see [`MIN_HEURISTIC_ACRONYM_LEN`]);
+/// 1. **Consonant run** — three-or-more ASCII letters, no digits — how
+///    initialisms like `cnc`, `sql`, and `html` read.
+/// 2. **Letter-led code** — two-or-more consonant letters, led by a letter and
+///    mixed with digits, e.g. part numbers like `bh1750`, `css3`, `ds18b20`.
+///
+/// Excluded, for robustness:
+///
+/// - anything with a vowel (`nasa`, `cat`, `chapter2`, `win10`) — pronounceable
+///   acronyms are indistinguishable from words by shape and must come from the
+///   acronym list; a word with a trailing number (`page5`) is likewise skipped;
+/// - digit-led tokens — ordinals (`1st`), decades (`90s`), quantities (`3x`),
+///   resolutions (`1080p`) — so those keep their conventional casing;
+/// - single-letter-plus-digit tags (`v1`, `s3`, `p2`) — too ambiguous to shout;
+///   list them explicitly if wanted;
+/// - non-ASCII letters (`naïve`) and any internal punctuation (`x86_64`);
+/// - bare two-letter consonant clusters (see [`MIN_HEURISTIC_ACRONYM_LEN`]);
 /// - the [`HEURISTIC_EXCEPTIONS`] (`hmm`, `mrs`, `nth`, …).
 fn looks_like_acronym(word: &str) -> bool {
     let c = core(word).to_lowercase();
     let mut letters = 0usize;
+    let mut has_digit = false;
     for ch in c.chars() {
+        if ch.is_ascii_digit() {
+            has_digit = true;
+            continue;
+        }
         if !ch.is_ascii_alphabetic() {
-            return false; // digits or non-ASCII letters: not a plain consonant run
+            return false; // non-ASCII letter or internal punctuation
         }
         if is_vowel(ch) {
             return false;
         }
         letters += 1;
+    }
+    if letters == 0 {
+        return false; // pure digits are not a code
+    }
+    if has_digit {
+        // Letter-led consonant+digit code (`bh1750`). Two-plus letters, so
+        // single-letter version tags (`v1`, `s3`) stay as written; a digit lead
+        // (ordinal / decade / quantity) is likewise left alone.
+        return letters >= 2 && c.starts_with(|ch: char| ch.is_ascii_alphabetic());
     }
     letters >= MIN_HEURISTIC_ACRONYM_LEN && !HEURISTIC_EXCEPTIONS.contains(&c.as_str())
 }
@@ -424,11 +447,41 @@ mod tests {
         // Two-letter clusters are too ambiguous for the heuristic (Mr, Dr, vs).
         assert!(!set.matches("mr"));
         assert!(!set.matches("vs"));
-        // Digits mean it is not a pure consonant run.
-        assert!(!set.matches("mp3"));
+        // A vowel in the letter portion means it is not a code.
         assert!(!set.matches("h2o"));
+        // Single-letter-plus-digit tags are left alone.
+        assert!(!set.matches("v1"));
+        assert!(!set.matches("s3"));
         // Non-ASCII letters bail out rather than half-matching.
         assert!(!set.matches("naïve"));
+    }
+
+    #[test]
+    fn heuristic_catches_letter_led_codes() {
+        let set = AcronymSet::new(true, &[]);
+        // Consonant letters mixed with digits are part-number-style codes.
+        assert!(set.matches("bh1750"));
+        assert!(set.matches("Bh1750")); // case-insensitive core
+        assert!(set.matches("css3"));
+        assert!(set.matches("mp3"));
+        assert!(set.matches("ds18b20"));
+    }
+
+    #[test]
+    fn heuristic_leaves_words_ordinals_and_decades_with_numbers_alone() {
+        let set = AcronymSet::new(true, &[]);
+        // Letter part has a vowel: an ordinary word with a number, not a code.
+        assert!(!set.matches("chapter2"));
+        assert!(!set.matches("page5"));
+        assert!(!set.matches("win10"));
+        assert!(!set.matches("covid19"));
+        // Digit-led tokens keep conventional casing.
+        assert!(!set.matches("1st"));
+        assert!(!set.matches("2nd"));
+        assert!(!set.matches("90s"));
+        assert!(!set.matches("3x"));
+        // Internal punctuation disqualifies it.
+        assert!(!set.matches("x86_64"));
     }
 
     #[test]

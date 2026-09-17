@@ -47,13 +47,15 @@ fn cap_word(
     if word.is_empty() {
         return String::new();
     }
-    // Respect words the writer already capitalized (acronyms, brands, names).
-    if respect_caps && has_uppercase(word) {
-        return word.to_string();
-    }
-    // Recognized acronyms are fully capitalized regardless of position.
+    // Recognized acronyms and codes are fully capitalized regardless of
+    // position or how the writer cased them ("Bh1750" -> "BH1750"), so this
+    // takes precedence over respecting existing caps.
     if acronyms.matches(word) {
         return word.to_uppercase();
+    }
+    // Respect words the writer already capitalized (brands, names, iPhone).
+    if respect_caps && has_uppercase(word) {
+        return word.to_string();
     }
     let lower = word.to_lowercase();
     let is_minor = SMALL_WORDS.contains(&core(&lower));
@@ -209,6 +211,23 @@ mod tests {
     fn two_letter_small_word_vs_not_treated_as_acronym() {
         // "vs" is a lowercase minor word, not a consonant-run acronym.
         assert_eq!(tc("cats vs dogs"), "Cats vs Dogs");
+    }
+
+    #[test]
+    fn capitalizes_letter_led_codes() {
+        assert_eq!(tc("the bh1750 datasheet"), "The BH1750 Datasheet");
+    }
+
+    #[test]
+    fn normalizes_half_cased_codes_over_respect_caps() {
+        // Acronym normalization beats respect-caps for a half-typed code.
+        assert_eq!(tc("the Bh1750 sensor"), "The BH1750 Sensor");
+    }
+
+    #[test]
+    fn word_with_number_gets_ordinary_title_casing() {
+        // "chapter2" is not a code; it just gets its first letter capitalized.
+        assert_eq!(tc("chapter2 notes"), "Chapter2 Notes");
     }
 
     #[test]
